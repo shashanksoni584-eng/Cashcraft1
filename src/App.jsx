@@ -9,7 +9,7 @@ import {
 
 const COURSE_PRICE = 199;
 const REFERRAL_BONUS = 99;
-const ADMIN_PASSCODE = "goal2026"; // isko badal dein deploy karne se pehle
+const ADMIN_PASSCODE = "@sk804936"; // isko badal dein deploy karne se pehle
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 const todayStr = () => new Date().toISOString().slice(0, 10);
