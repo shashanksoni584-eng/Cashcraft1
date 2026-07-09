@@ -601,7 +601,7 @@ function sideMenuBtnStyle(active, lime, card) {
 }
 
 /* ---- LANDING PAGE ---- */
-function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
+: 13, function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 20px", textAlign: "center" }}>
       <h1 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 32, marginBottom: 16 }}>
@@ -615,56 +615,48 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
         style={{
           background: lime, color: "#0F1513", border: "none",
           padding: "14px 32px", borderRadius: 999, fontSize: 15,
-          fontWeight: 800, cursor: "pointer", marginBottom: 24,
+          fontWeight: 800, cursor: "pointer", marginBottom: 48,
           boxShadow: `0 4px 20px ${lime}33`
         }}
       >
         Course Le Lein — ₹{COURSE_PRICE}
       </button>
 
-      {/* Yahan se aapke do naye image cards shuru hote hain (Bina pehle wale layout ko disturb kiye) */}
-      <div style={{ marginTop: 40, textAlign: "left" }}>
+      {/* 3 Skill Cards Section */}
+      <div style={{ marginTop: 20, textAlign: "left" }}>
+        <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 24, textAlign: "center", color: "#F2F5F0" }}>
+          Inme Se Apni Manpasand Skill Chunein
+        </h2>
         <div style={{ 
           display: "grid", 
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", 
-          gap: "20px"
+          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", 
+          gap: "16px"
         }}>
           
-          {/* Card 1: Skill Learning */}
-          <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "16px", overflow: "hidden" }}>
-            <div style={{ width: "100%", height: "180px", overflow: "hidden", background: "#222" }}>
-              <img 
-                src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80" 
-                alt="Learn Professional Skills" 
-                style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }}
-              />
-            </div>
-            <div style={{ padding: "20px" }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: lime, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                <span>🚀</span> In-Demand Skills Seekho
-              </h3>
-              <p style={{ color: muted, fontSize: 13, lineHeight: "1.5" }}>
-                Yahan log advanced professional skills scratch se sikhate hain. Video editing, thumbnail designing aur high-paying crafts ki complete practical knowledge.
-              </p>
+          {/* Card 1: Video Editing */}
+          <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "12px", overflow: "hidden" }}>
+            <img src="https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=500&auto=format&fit=crop&q=60" alt="Video Editing" style={{ width: "100%", height: "140px", objectFit: "cover" }} />
+            <div style={{ padding: "16px" }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: lime, marginBottom: 6 }}>🎬 Video Editing</h3>
+              <p style={{ color: muted, fontSize: 12, lineHeight: "1.4" }}>High-end transitions, sound design aur viral cutting techniques scratch se seekhein.</p>
             </div>
           </div>
 
-          {/* Card 2: Client Availability */}
-          <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "16px", overflow: "hidden" }}>
-            <div style={{ width: "100%", height: "180px", overflow: "hidden", background: "#222" }}>
-              <img 
-                src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&auto=format&fit=crop&q=80" 
-                alt="Get Premium Clients" 
-                style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }}
-              />
+          {/* Card 2: Thumbnail Designing */}
+          <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "12px", overflow: "hidden" }}>
+            <img src="https://images.unsplash.com/photo-1626785774573-4b799315345d?w=500&auto=format&fit=crop&q=60" alt="Thumbnail Design" style={{ width: "100%", height: "140px", objectFit: "cover" }} />
+            <div style={{ padding: "16px" }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: amber, marginBottom: 6 }}>🎨 Thumbnail Designing</h3>
+              <p style={{ color: muted, fontSize: 12, lineHeight: "1.4" }}>High-CTR click-worthy CTR layouts, color grading aur composition rules jo views badhayein.</p>
             </div>
-            <div style={{ padding: "20px" }}>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: amber, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
-                <span>💼</span> Direct Clients Milenge
-              </h3>
-              <p style={{ color: muted, fontSize: 13, lineHeight: "1.5" }}>
-                Sirf seekhna kaafi nahi hai! Platform par live orders aur clients bhi available ho jaate hain, taaki aap apni skill ko turant monetization me badal sakein.
-              </p>
+          </div>
+
+          {/* Card 3: Script Writing */}
+          <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "12px", overflow: "hidden" }}>
+            <img src="https://images.unsplash.com/photo-1512046011337-41a5c7275ba1?w=500&auto=format&fit=crop&q=60" alt="Script Writing" style={{ width: "100%", height: "140px", objectFit: "cover" }} />
+            <div style={{ padding: "16px" }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: "#38BDF8", marginBottom: 6 }}>✍️ Script Writing</h3>
+              <p style={{ color: muted, fontSize: 12, lineHeight: "1.4" }}>Audience retention hooks, storytelling frameworks aur engaging content structures likhna seekhein.</p>
             </div>
           </div>
 
@@ -672,6 +664,8 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
       </div>
     </div>
   );
+}
+
 }
 
 
