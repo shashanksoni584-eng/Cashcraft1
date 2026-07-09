@@ -604,32 +604,27 @@ function sideMenuBtnStyle(active, lime, card) {
 function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 20px", textAlign: "center" }}>
+      {/* 1. Aapka purana landing page design aur text exactly waisa hi hai */}
       <h1 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 32, marginBottom: 16 }}>
         Build High-Income <span style={{ color: lime }}>Craft Skills</span>
       </h1>
       <p style={{ color: muted, marginBottom: 32, fontSize: 15, lineHeight: "1.6" }}>
         Ghar baithe aisi skills seekhein jo aapko sach me earn karke dein. No fluff, pure practical knowledge.
       </p>
-
-      {/* Main Join Button */}
-      <button 
-        onClick={onBuy} 
-        style={{ 
-          background: lime, color: "#0F1513", border: "none", 
-          padding: "14px 32px", borderRadius: 999, fontSize: 15, 
-          fontWeight: 800, cursor: "pointer", marginBottom: 48,
+      <button
+        onClick={onBuy}
+        style={{
+          background: lime, color: "#0F1513", border: "none",
+          padding: "14px 32px", borderRadius: 999, fontSize: 15,
+          fontWeight: 800, cursor: "pointer", marginBottom: 48, // Bottom margin badha di taaki gap bana rahe
           boxShadow: `0 4px 20px ${lime}33`
         }}
       >
         Course Le Lein — ₹{COURSE_PRICE}
       </button>
 
-      {/* New Image Cards Section */}
+      {/* 2. Iske theek niche ab ye naye image blocks show honge */}
       <div style={{ marginTop: 20, textAlign: "left" }}>
-        <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 20, marginBottom: 24, textAlign: "center", color: "#F2F5F0" }}>
-          Platform Par Aapko Kya Milega?
-        </h2>
-        
         <div style={{ 
           display: "grid", 
           gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", 
@@ -680,6 +675,7 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
     </div>
   );
 }
+
 
 
 function LoginFlow({ onLogin, lime, amber, muted, card, cardBorder }) {
