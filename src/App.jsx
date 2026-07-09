@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Flame, Target, Copy, Share2, ShieldCheck, Link2, Users,
   TrendingUp, CheckCircle2, ArrowRight, Lock,
@@ -9,7 +9,7 @@ import {
 
 const COURSE_PRICE = 199;
 const REFERRAL_BONUS = 99;
-const ADMIN_PASSCODE = "@sk804936"; // isko badal dein deploy karne se pehle
+const ADMIN_PASSCODE = "@sk804936"; // Deploy karne se pehle badal sakte hain
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -51,7 +51,7 @@ export default function App() {
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("landing");
-  const [buyForm, setBuyForm] = useState({ name: '', phone: '', email: '', password: '' });
+  const [buyForm, setBuyForm] = useState({ name: '', phone: '', email: '', password: '', refCode: '' });
   const [buyStep, setBuyStep] = useState("form");
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [adminPass, setAdminPass] = useState("");
@@ -62,22 +62,16 @@ export default function App() {
       const dl = await getDailyLink();
       setDailyLinkState(dl);
 
-      // Check if we're returning from a ZapUPI payment redirect
       const params = new URLSearchParams(window.location.search);
       const returnOrderId = params.get("order_id");
-      const returnStatus = params.get("status");
 
       if (returnOrderId) {
-        // Clean the URL so refreshing doesn't re-trigger this
         window.history.replaceState({}, "", window.location.pathname);
 
         const pendingRaw = localStorage.getItem("craftskill_pending_order");
         const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
 
         if (pending && pending.order_id === returnOrderId) {
-          // ZapUPI's redirect status can fire before their system fully
-          // confirms the payment, so we always double-check the real
-          // status via the API instead of trusting returnStatus alone.
           try {
             const statusRes = await fetch("/api/zapupi-order-status", {
               method: "POST",
@@ -87,7 +81,7 @@ export default function App() {
             const statusData = await statusRes.json();
 
             if (statusData.verified) {
-              await finalizePurchase(pending.name, pending.phone, pending.refCode);
+              await finalizePurchase(pending.name, pending.phone, pending.refCode, pending.email, pending.password);
               localStorage.removeItem("craftskill_pending_order");
               setView("dashboard");
               setLoading(false);
@@ -96,8 +90,6 @@ export default function App() {
               showToast("Payment fail ho gaya");
               localStorage.removeItem("craftskill_pending_order");
             } else {
-              // Still pending on ZapUPI's side — keep the pending info
-              // so the "Maine Payment Kar Diya" button can recheck later.
               showToast("Payment abhi confirm nahi hua, thodi der baad dobara check karein");
             }
           } catch (err) {
@@ -121,15 +113,10 @@ export default function App() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
 
-  async function refreshCurrentUser(phone) {
-    const u = await getUser(phone);
-    setCurrentUser(u);
-  }
-
   async function handlePurchase() {
-    const { name, phone, refCode } = buyForm;
-    if (!name.trim() || phone.trim().length < 8) {
-      showToast("Naam aur sahi phone number daalein");
+    const { name, phone, refCode, email, password } = buyForm;
+    if (!name.trim() || phone.trim().length < 8 || !email.trim() || !password.trim()) {
+      showToast("Naam, Phone, Email aur Password sab sahi se bharein!");
       return;
     }
     setBuyStep("paying");
@@ -152,8 +139,7 @@ export default function App() {
         return;
       }
 
-      // Save pending purchase info so we can finish it when the user
-      // is redirected back from ZapUPI's payment page.
+      // Email aur Password ko bhi pending state mein save kiya taaki redirect ke baad data loss na ho
       localStorage.setItem(
         "craftskill_pending_order",
         JSON.stringify({
@@ -161,6 +147,8 @@ export default function App() {
           name: name.trim(),
           phone: phone.trim(),
           refCode: refCode.trim(),
+          email: email.trim(),
+          password: password.trim()
         })
       );
 
@@ -171,7 +159,7 @@ export default function App() {
     }
   }
 
-  async function finalizePurchase(name, phone, refCode) {
+  async function finalizePurchase(name, phone, refCode, email, password) {
     const existing = await getUser(phone);
     const referrer = refCode ? await findByReferralCode(refCode) : null;
 
@@ -179,6 +167,8 @@ export default function App() {
       id: uid(),
       name,
       phone,
+      email: email || "",
+      password: password || "",
       referralCode: genRefCode(name),
       referredBy: referrer ? referrer.referralCode : null,
       isReseller: false,
@@ -186,6 +176,11 @@ export default function App() {
     };
     userData.purchased = true;
     userData.purchaseDate = todayStr();
+    
+    // Agar existing user h toh usme bhi naye credentials update ho jayein
+    if(email) userData.email = email;
+    if(password) userData.password = password;
+
     await setUser(phone, userData);
 
     if (referrer) {
@@ -221,7 +216,7 @@ export default function App() {
       const statusData = await statusRes.json();
 
       if (statusData.verified) {
-        await finalizePurchase(pending.name, pending.phone, pending.refCode);
+        await finalizePurchase(pending.name, pending.phone, pending.refCode, pending.email, pending.password);
         localStorage.removeItem("craftskill_pending_order");
         setBuyStep("done");
       } else if (statusData.status === "Pending") {
@@ -238,26 +233,38 @@ export default function App() {
     }
   }
 
-  async function handleLogin(phone) {
-    if (!phone.trim() || phone.trim().length < 8) {
-      showToast("Sahi phone number daalein");
+  async function handleLogin(email, password) {
+    if (!email.trim() || !password.trim()) {
+      showToast("Gmail ID aur Password dono bharein!");
       return;
     }
-    const u = await getUser(phone.trim());
-    if (u && u.purchased) {
-      localStorage.setItem("craftskill_session", phone.trim());
-      setCurrentPhone(phone.trim());
-      setCurrentUser(u);
-      setView("dashboard");
-    } else {
-      showToast("Is number se koi account nahi mila");
+    try {
+      const dbUsers = await getAllUsers();
+      // Object ko array me safe-convert karna taaki dynamic verification smooth ho
+      const usersList = Array.isArray(dbUsers) ? dbUsers : Object.values(dbUsers || {});
+      
+      const foundUser = usersList.find(
+        (u) => u.email?.trim() === email.trim() && u.password?.trim() === password.trim()
+      );
+
+      if (foundUser && foundUser.purchased) {
+        localStorage.setItem("craftskill_session", foundUser.phone);
+        setCurrentPhone(foundUser.phone);
+        setCurrentUser(foundUser);
+        setView("dashboard");
+        showToast("Welcome back!");
+      } else {
+        showToast("Galat Email ya Password! Pehle course khareedein.");
+      }
+    } catch (err) {
+      showToast("Login fail ho gaya, kripya dobara try karein.");
     }
   }
 
   function finishPurchaseFlow() {
     setView("dashboard");
     setBuyStep("form");
-    setBuyForm({ name: "", phone: "", refCode: "" });
+    setBuyForm({ name: "", phone: "", email: "", password: "", refCode: "" });
   }
 
   function handleLogout() {
@@ -422,21 +429,19 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
 
 function LoginFlow({ onLogin, lime, amber, muted, card, cardBorder }) {
   const [email, setEmail] = useState('');
-const [password, setPassword] = useState('');
+  const [password, setPassword] = useState('');
   
   return (
     <div style={{ maxWidth: 440, margin: "0 auto", padding: "56px 24px" }}>
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28 }}>
         <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 8 }}>Wapas Login Karein</h2>
-        <p style={{ color: muted, fontSize: 13.5, marginBottom: 20 }}>Wahi phone number daalein jisse course kharida tha.</p>
+        <p style={{ color: muted, fontSize: 13.5, marginBottom: 20 }}>Apni registered Gmail ID aur Password se login karein.</p>
         <FieldInput label="Gmail ID" value={email} onChange={(v) => setEmail(v)} muted={muted} cardBorder={cardBorder} />
-<FieldInput label="Password" type="password" value={password} onChange={(v) => setPassword(v)} muted={muted} cardBorder={cardBorder} />
+        <FieldInput label="Password" type="password" value={password} onChange={(v) => setPassword(v)} muted={muted} cardBorder={cardBorder} />
 
-   <button onClick={() => onLogin(email, password)} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 10, fontWeight: "bold", marginTop: 10, cursor: "pointer" }}>
-  Dashboard Kholein
-</button>
-     
-
+        <button onClick={() => onLogin(email, password)} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 10, fontWeight: "bold", marginTop: 10, cursor: "pointer" }}>
+          Dashboard Kholein
+        </button>
       </div>
     </div>
   );
@@ -461,10 +466,10 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
             )}
             <FieldInput label="Naam" value={buyForm.name} onChange={(v) => setBuyForm({ ...buyForm, name: v })} muted={muted} cardBorder={cardBorder} />
             <FieldInput label="Phone Number" value={buyForm.phone} onChange={(v) => setBuyForm({ ...buyForm, phone: v })} muted={muted} cardBorder={cardBorder} />
-            <FieldInput label="Gmail ID" value={buyForm.email || ''} onChange={(v) => setBuyForm({ ...buyForm, email: v })} muted={muted} cardBorder={cardBorder} />
-<FieldInput label="Password" type="password" value={buyForm.password || ''} onChange={(v) => setBuyForm({ ...buyForm, password: v })} muted={muted} cardBorder={cardBorder} />
+            <FieldInput label="Gmail ID" value={buyForm.email} onChange={(v) => setBuyForm({ ...buyForm, email: v })} muted={muted} cardBorder={cardBorder} />
+            <FieldInput label="Password" type="password" value={buyForm.password} onChange={(v) => setBuyForm({ ...buyForm, password: v })} muted={muted} cardBorder={cardBorder} />
+            <FieldInput label="Referral Code" value={buyForm.refCode} onChange={(v) => setBuyForm({ ...buyForm, refCode: v })} muted={muted} cardBorder={cardBorder} optional />
             
-            <FieldInput label="Referral Code (agar hai to)" value={buyForm.refCode} onChange={(v) => setBuyForm({ ...buyForm, refCode: v })} muted={muted} cardBorder={cardBorder} optional />
             <button onClick={onPay} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, marginTop: 10, cursor: "pointer" }}>
               Pay ₹{COURSE_PRICE}
             </button>
@@ -496,7 +501,7 @@ function FieldInput({ label, value, onChange, muted, cardBorder, optional }) {
   return (
     <div style={{ marginBottom: 14 }}>
       <label style={{ fontSize: 12, color: muted, display: "block", marginBottom: 6 }}>{label}{optional && " (optional)"}</label>
-      <input value={value} onChange={(e) => onChange(e.target.value)}
+      <input value={value || ''} onChange={(e) => onChange(e.target.value)}
         style={{ width: "100%", background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "11px 12px", color: "#F2F5F0", fontSize: 14, outline: "none" }} />
     </div>
   );
@@ -516,7 +521,7 @@ function Dashboard({ user, earnings, dailyLink, lime, amber, muted, card, cardBo
         )}
       </div>
       <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center", background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28, marginBottom: 20 }}>
-        <GoalRing value={earnings.today} max={Math.max(earnings.monthly, 1)} color={lime} label={`₹${earnings.total}`} sub="Pending" />
+        <GoalRing value={earnings.today} max={Math.max(earnings.monthly, 1)} color={lime} label={`₹${earnings.total}`} sub="Total Earned" />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14, marginBottom: 20 }}>
         <StatCard label="Today's Earning" value={earnings.today} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
@@ -532,7 +537,7 @@ function Dashboard({ user, earnings, dailyLink, lime, amber, muted, card, cardBo
         {dailyLink.url ? (
           <a href={dailyLink.url} target="_blank" rel="noreferrer" style={{ color: lime, fontSize: 13.5, wordBreak: "break-all" }}>{dailyLink.label || dailyLink.url}</a>
         ) : (
-          <div style={{ color: muted, fontSize: 13.5 }}>{dailyLink.label}</div>
+          <div style={{ color: muted, fontSize: 13.5 }}>{dailyLink.label || "Koi link available nahi hai."}</div>
         )}
       </div>
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
@@ -563,9 +568,10 @@ function StatCard({ label, value, muted, card, cardBorder, amber, highlight }) {
   );
 }
 
+// Object vs Array standard data render handling fix kiya hai yahan
 function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpdateLink, onToggleReseller, lime, amber, muted, card, cardBorder }) {
-  const [urlInput, setUrlInput] = useState(dailyLink.url);
-  const [labelInput, setLabelInput] = useState(dailyLink.label);
+  const [urlInput, setUrlInput] = useState(dailyLink.url || "");
+  const [labelInput, setLabelInput] = useState(dailyLink.label || "");
 
   if (!unlocked) {
     return (
@@ -583,6 +589,8 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpd
     );
   }
 
+  const normalizedUsers = Array.isArray(users) ? users : Object.values(users || {});
+
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
       <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Admin Panel</h2>
@@ -595,13 +603,13 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpd
         </button>
       </div>
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
-        <div style={{ fontWeight: 700, marginBottom: 12 }}>Users ({users.length})</div>
-        {users.length === 0 && <div style={{ color: muted, fontSize: 13 }}>Abhi koi user nahi hai.</div>}
-        {users.map((u) => (
+        <div style={{ fontWeight: 700, marginBottom: 12 }}>Users ({normalizedUsers.length})</div>
+        {normalizedUsers.length === 0 && <div style={{ color: muted, fontSize: 13 }}>Abhi koi user nahi hai.</div>}
+        {normalizedUsers.map((u) => (
           <div key={u.phone} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${cardBorder}` }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600 }}>{u.name} <span style={{ color: muted, fontWeight: 400, fontSize: 12 }}>· {u.phone}</span></div>
-              <div style={{ fontSize: 11.5, color: muted }}>Code: {u.referralCode} {u.referredBy && `· Ref by: ${u.referredBy}`}</div>
+              <div style={{ fontSize: 11.5, color: muted }}>Email: {u.email || "N/A"} · Code: {u.referralCode} {u.referredBy && `· Ref by: ${u.referredBy}`}</div>
             </div>
             <button onClick={() => onToggleReseller(u.phone, u.isReseller)}
               style={{ background: u.isReseller ? amber : "transparent", color: u.isReseller ? "#0F1513" : muted, border: `1px solid ${u.isReseller ? amber : cardBorder}`, borderRadius: 999, padding: "5px 12px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
