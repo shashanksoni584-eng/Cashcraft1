@@ -71,7 +71,7 @@ export default function App() {
         // Clean the URL so refreshing doesn't re-trigger this
         window.history.replaceState({}, "", window.location.pathname);
 
-        const pendingRaw = localStorage.getItem("cashcraft_pending_order");
+        const pendingRaw = localStorage.getItem("craftskill_pending_order");
         const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
 
         if (pending && pending.order_id === returnOrderId) {
@@ -88,13 +88,13 @@ export default function App() {
 
             if (statusData.verified) {
               await finalizePurchase(pending.name, pending.phone, pending.refCode);
-              localStorage.removeItem("cashcraft_pending_order");
+              localStorage.removeItem("craftskill_pending_order");
               setView("dashboard");
               setLoading(false);
               return;
             } else if (statusData.status === "Failed") {
               showToast("Payment fail ho gaya");
-              localStorage.removeItem("cashcraft_pending_order");
+              localStorage.removeItem("craftskill_pending_order");
             } else {
               // Still pending on ZapUPI's side — keep the pending info
               // so the "Maine Payment Kar Diya" button can recheck later.
@@ -106,7 +106,7 @@ export default function App() {
         }
       }
 
-      const savedPhone = localStorage.getItem("cashcraft_session");
+      const savedPhone = localStorage.getItem("craftskill_session");
       if (savedPhone) {
         const u = await getUser(savedPhone);
         if (u) {
