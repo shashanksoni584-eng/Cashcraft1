@@ -51,7 +51,7 @@ export default function App() {
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("landing");
-  const [buyForm, setBuyForm] = useState({ name: "", phone: "", refCode: "" });
+  const [buyForm, setBuyForm] = useState({ name: '', phone: '', email: '', password: '' });
   const [buyStep, setBuyStep] = useState("form");
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [adminPass, setAdminPass] = useState("");
