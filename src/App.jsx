@@ -144,7 +144,7 @@ export default function App() {
       const order = await orderRes.json();
 
       if (!order.payment_url) {
-        showToast("Payment start nahi ho paya, dobara try karein");
+        showToast(order.error || "Payment start nahi ho paya, dobara try karein");
         setBuyStep("form");
         return;
       }
@@ -339,7 +339,7 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
           Har din ek naya practical step. Structured plan, koi confusion nahi.
         </p>
         <button onClick={onBuy} style={{ background: lime, color: "#0F1513", border: "none", padding: "14px 32px", borderRadius: 999, fontWeight: 800, fontSize: 15, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-          Course Shuru Kare — ₹{COURSE_PRICE} <ArrowRight size={16} />
+          Course Shuru Karein — ₹{COURSE_PRICE} <ArrowRight size={16} />
         </button>
       </section>
       <section style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px 72px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
