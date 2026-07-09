@@ -603,38 +603,84 @@ function sideMenuBtnStyle(active, lime, card) {
 /* ---- LANDING PAGE ---- */
 function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
   return (
-    <div>
-      <section style={{ maxWidth: 960, margin: "0 auto", padding: "72px 24px 48px", textAlign: "center" }}>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: card, border: `1px solid ${cardBorder}`, padding: "6px 14px", borderRadius: 999, fontSize: 12, color: amber, marginBottom: 24 }}>
-          <Flame size={14} /> Structured Motivation Skill Stack
-        </div>
-        <h1 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: "clamp(32px, 6vw, 56px)", lineHeight: 1.05, marginBottom: 20 }}>
-          Apna <span style={{ color: lime }}>Goal Scale</span> hit karo.<br />By Craftskill learn skills with execution logic.
-        </h1>
-        <p style={{ color: muted, fontSize: 16, maxWidth: 520, margin: "0 auto 32px" }}>
-          Har din ek naya practical step. Structured plan, koi confusion nahi. Daily live link assignment aur systematic growth metrics tracking panels.
-        </p>
-        <button onClick={onBuy} style={{ background: lime, color: "#0F1513", border: "none", padding: "14px 32px", borderRadius: 999, fontWeight: 800, fontSize: 15, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-          Course Access Kare — ₹{COURSE_PRICE} <ArrowRight size={16} />
-        </button>
-      </section>
+    <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 20px", textAlign: "center" }}>
+      <h1 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 32, marginBottom: 16 }}>
+        Build High-Income <span style={{ color: lime }}>Craft Skills</span>
+      </h1>
+      <p style={{ color: muted, marginBottom: 32, fontSize: 15, lineHeight: "1.6" }}>
+        Ghar baithe aisi skills seekhein jo aapko sach me earn karke dein. No fluff, pure practical knowledge.
+      </p>
 
-      <section style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px 72px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
-        {[
-          { icon: Target, title: "Daily Goal Link", desc: "Har din naya session/link, seedha aapke dashboard mein." },
-          { icon: TrendingUp, title: "Track Progress", desc: "Weekly aur monthly progress ek nazar mein." },
-          { icon: Users, title: "Referral Wallet", desc: `Apna code share karo, referral se ₹${REFERRAL_BONUS} har purchase par.` },
-        ].map((f, i) => (
-          <div key={i} style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24 }}>
-            <f.icon color={lime} size={22} style={{ marginBottom: 12 }} />
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>{f.title}</div>
-            <div style={{ color: muted, fontSize: 13.5, lineHeight: 1.5 }}>{f.desc}</div>
+      {/* Main Join Button */}
+      <button 
+        onClick={onBuy} 
+        style={{ 
+          background: lime, color: "#0F1513", border: "none", 
+          padding: "14px 32px", borderRadius: 999, fontSize: 15, 
+          fontWeight: 800, cursor: "pointer", marginBottom: 48,
+          boxShadow: `0 4px 20px ${lime}33`
+        }}
+      >
+        Course Le Lein — ₹{COURSE_PRICE}
+      </button>
+
+      {/* New Image Cards Section */}
+      <div style={{ marginTop: 20, textAlign: "left" }}>
+        <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 20, marginBottom: 24, textAlign: "center", color: "#F2F5F0" }}>
+          Platform Par Aapko Kya Milega?
+        </h2>
+        
+        <div style={{ 
+          display: "grid", 
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", 
+          gap: "20px",
+          marginTop: "16px" 
+        }}>
+          
+          {/* Card 1: Skill Learning */}
+          <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "16px", overflow: "hidden" }}>
+            <div style={{ width: "100%", height: "180px", overflow: "hidden", background: "#222" }}>
+              <img 
+                src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600&auto=format&fit=crop&q=80" 
+                alt="Learn Professional Skills" 
+                style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }}
+              />
+            </div>
+            <div style={{ padding: "20px" }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: lime, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                <span>🚀</span> In-Demand Skills Seekho
+              </h3>
+              <p style={{ color: muted, fontSize: 13, lineHeight: "1.5" }}>
+                Yahan log advanced professional skills scratch se sikhate hain. Video editing, thumbnail designing aur high-paying crafts ki complete practical knowledge.
+              </p>
+            </div>
           </div>
-        ))}
-      </section>
+
+          {/* Card 2: Client Availability */}
+          <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "16px", overflow: "hidden" }}>
+            <div style={{ width: "100%", height: "180px", overflow: "hidden", background: "#222" }}>
+              <img 
+                src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&auto=format&fit=crop&q=80" 
+                alt="Get Premium Clients" 
+                style={{ width: "100%", height: "100%", objectFit: "cover", opacity: 0.85 }}
+              />
+            </div>
+            <div style={{ padding: "20px" }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: amber, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                <span>💼</span> Direct Clients Milenge
+              </h3>
+              <p style={{ color: muted, fontSize: 13, lineHeight: "1.5" }}>
+                Sirf seekhna kaafi nahi hai! Platform par live orders aur clients bhi available ho jaate hain, taaki aap apni skill ko turant monetization me badal sakein.
+              </p>
+            </div>
+          </div>
+
+        </div>
+      </div>
     </div>
   );
 }
+
 
 function LoginFlow({ onLogin, lime, amber, muted, card, cardBorder }) {
   const [email, setEmail] = useState('');
