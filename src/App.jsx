@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Flame, Target, Copy, Share2, ShieldCheck, Link2, Users,
-  TrendingUp, CheckCircle2, ArrowRight, Lock,
+  TrendingUp, CheckCircle2, ArrowRight, Lock, Menu, X, User, MessageSquare, Briefcase, Award
 } from "lucide-react";
 import {
   getUser, setUser, getAllUsers, findByReferralCode, getDailyLink, setDailyLink,
@@ -9,7 +9,7 @@ import {
 
 const COURSE_PRICE = 199;
 const REFERRAL_BONUS = 99;
-const ADMIN_PASSCODE = "@sk804936"; // Deploy karne se pehle badal sakte hain
+const ADMIN_PASSCODE = "@sk804936"; 
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -51,12 +51,14 @@ export default function App() {
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("landing");
+  const [dashSubView, setDashSubView] = useState("dashboard"); // Dashboard sub-navigation state
   const [buyForm, setBuyForm] = useState({ name: '', phone: '', email: '', password: '', refCode: '' });
   const [buyStep, setBuyStep] = useState("form");
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [adminPass, setAdminPass] = useState("");
   const [toast, setToast] = useState("");
-  const [isMenuOpen, setIsMenuOpen] = useState(false); // Mobile menu state yaheen add ho gayi hai
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [seoWorkInput, setSeoWorkInput] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -68,7 +70,6 @@ export default function App() {
 
       if (returnOrderId) {
         window.history.replaceState({}, "", window.location.pathname);
-
         const pendingRaw = localStorage.getItem("craftskill_pending_order");
         const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
 
@@ -85,16 +86,17 @@ export default function App() {
               await finalizePurchase(pending.name, pending.phone, pending.refCode, pending.email, pending.password);
               localStorage.removeItem("craftskill_pending_order");
               setView("dashboard");
+              setDashSubView("dashboard");
               setLoading(false);
               return;
             } else if (statusData.status === "Failed") {
               showToast("Payment fail ho gaya");
               localStorage.removeItem("craftskill_pending_order");
             } else {
-              showToast("Payment abhi confirm nahi hua, thodi der baad dobara check karein");
+              showToast("Payment pending, thodi der baad check karein");
             }
           } catch (err) {
-            showToast("Payment verify karne mein dikkat hui, dobara check karein");
+            showToast("Payment verification error");
           }
         }
       }
@@ -106,6 +108,7 @@ export default function App() {
           setCurrentPhone(savedPhone);
           setCurrentUser(u);
           setView("dashboard");
+          setDashSubView("dashboard");
         }
       }
       setLoading(false);
@@ -117,7 +120,7 @@ export default function App() {
   async function handlePurchase() {
     const { name, phone, refCode, email, password } = buyForm;
     if (!name.trim() || phone.trim().length < 8 || !email.trim() || !password.trim()) {
-      showToast("Naam, Phone, Email aur Password sab sahi se bharein!");
+      showToast("Saari details sahi se bharein!");
       return;
     }
     setBuyStep("paying");
@@ -135,7 +138,7 @@ export default function App() {
       const order = await orderRes.json();
 
       if (!order.payment_url) {
-        showToast(order.error || "Payment start nahi ho paya, dobara try karein");
+        showToast(order.error || "Payment failed to initialize");
         setBuyStep("form");
         return;
       }
@@ -173,6 +176,8 @@ export default function App() {
       referredBy: referrer ? referrer.referralCode : null,
       isReseller: false,
       transactions: [],
+      seoWorks: [],
+      seoScore: 10,
     };
     userData.purchased = true;
     userData.purchaseDate = todayStr();
@@ -187,7 +192,7 @@ export default function App() {
         ...referrer,
         transactions: [
           ...(referrer.transactions || []),
-          { id: uid(), date: todayStr(), amount: REFERRAL_BONUS, type: "credit", source: `Referral: ${name} ne course kharida` },
+          { id: uid(), date: todayStr(), amount: REFERRAL_BONUS, type: "credit", source: `Referral: ${name} registered` },
         ],
       };
       await setUser(referrer.phone, updatedReferrer);
@@ -218,29 +223,24 @@ export default function App() {
         await finalizePurchase(pending.name, pending.phone, pending.refCode, pending.email, pending.password);
         localStorage.removeItem("craftskill_pending_order");
         setBuyStep("done");
-      } else if (statusData.status === "Pending") {
-        showToast("Payment abhi bhi pending hai, thodi der baad try karein");
-        setBuyStep("form");
       } else {
-        showToast("Payment successful nahi hua");
-        localStorage.removeItem("craftskill_pending_order");
+        showToast("Payment abhi tak receive nahi hua");
         setBuyStep("form");
       }
     } catch (err) {
-      showToast("Status check karne mein dikkat hui");
+      showToast("Error checking payment status");
       setBuyStep("form");
     }
   }
 
   async function handleLogin(email, password) {
     if (!email.trim() || !password.trim()) {
-      showToast("Gmail ID aur Password dono bharein!");
+      showToast("Gmail aur Password dono bharein!");
       return;
     }
     try {
       const dbUsers = await getAllUsers();
       const usersList = Array.isArray(dbUsers) ? dbUsers : Object.values(dbUsers || {});
-      
       const foundUser = usersList.find(
         (u) => u.email?.trim() === email.trim() && u.password?.trim() === password.trim()
       );
@@ -250,19 +250,30 @@ export default function App() {
         setCurrentPhone(foundUser.phone);
         setCurrentUser(foundUser);
         setView("dashboard");
-        showToast("Welcome back!");
+        setDashSubView("dashboard");
+        showToast("Welcome to Craftskill!");
       } else {
-        showToast("Galat Email ya Password! Pehle course khareedein.");
+        showToast("Galat details ya course purchased nahi hai.");
       }
     } catch (err) {
-      showToast("Login fail ho gaya, kripya dobara try karein.");
+      showToast("Login process error.");
     }
   }
 
-  function finishPurchaseFlow() {
-    setView("dashboard");
-    setBuyStep("form");
-    setBuyForm({ name: "", phone: "", email: "", password: "", refCode: "" });
+  async function handleAddSeoWork() {
+    if (!seoWorkInput.trim()) {
+      showToast("Work link ya details Khali nahi chhod sakte!");
+      return;
+    }
+    const updatedUser = {
+      ...currentUser,
+      seoWorks: [...(currentUser.seoWorks || []), { id: uid(), date: todayStr(), content: seoWorkInput.trim() }],
+      seoScore: (currentUser.seoScore || 10) + 15, 
+    };
+    await setUser(currentPhone, updatedUser);
+    setCurrentUser(updatedUser);
+    setSeoWorkInput("");
+    showToast("Work saved! SEO Ranking Improved!");
   }
 
   function handleLogout() {
@@ -270,6 +281,13 @@ export default function App() {
     setCurrentPhone(null);
     setCurrentUser(null);
     setView("landing");
+  }
+
+  function finishPurchaseFlow() {
+    setView("dashboard");
+    setDashSubView("dashboard");
+    setBuyStep("form");
+    setBuyForm({ name: "", phone: "", email: "", password: "", refCode: "" });
   }
 
   async function toggleReseller(phone, current) {
@@ -301,39 +319,11 @@ export default function App() {
     };
   }
 
-  // Yahan par mobile menu ke liye naye CSS styles jod diye gaye hain
   const fontLink = (
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&display=swap');
       * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
-      body { background: #0F1513; }
-
-      @media (max-width: 768px) {
-        .hamburger-btn {
-          display: flex !important;
-          z-index: 101;
-        }
-        .nav-links {
-          display: none !important;
-          flex-direction: column;
-          position: absolute;
-          top: 100%;
-          left: 0;
-          right: 0;
-          background: #161F1C;
-          border-bottom: 1px solid #243029;
-          padding: 20px;
-          gap: 12px !important;
-          z-index: 100;
-        }
-        .nav-links.open {
-          display: flex !important;
-        }
-        .nav-links button {
-          width: 100%;
-          text-align: center;
-        }
-      }
+      body { background: #0F1513; overflow-x: hidden; }
     `}</style>
   );
 
@@ -343,7 +333,7 @@ export default function App() {
         {fontLink}
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Flame color="#B4FF39" size={22} />
-          <span>Load ho raha hai...</span>
+          <span>Craftskill loading...</span>
         </div>
       </div>
     );
@@ -353,83 +343,161 @@ export default function App() {
   const lime = "#B4FF39", amber = "#FFB238", muted = "#8A9A94", text = "#F2F5F0";
 
   return (
-    <div style={{ minHeight: "100vh", background: bg, color: text }}>
+    <div style={{ minHeight: "100vh", background: bg, color: text, position: "relative" }}>
       {fontLink}
+      
       {toast && (
-        <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", background: card, border: `1px solid ${lime}`, color: lime, padding: "10px 20px", borderRadius: 999, zIndex: 100, fontSize: 13, fontWeight: 600 }}>
+        <div style={{ position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)", background: card, border: `1px solid ${lime}`, color: lime, padding: "10px 20px", borderRadius: 999, zIndex: 1100, fontSize: 13, fontWeight: 600 }}>
           {toast}
         </div>
       )}
 
-      {/* Ye hai poora responsive navbar jo mobile par 3 lines ka menu dikhayega */}
-      <nav style={{ 
-        display: "flex", 
-        justifyContent: "space-between", 
-        alignItems: "center", 
-        padding: "18px 24px", 
-        borderBottom: `1px solid ${cardBorder}`,
-        position: "relative" 
+      {/* Slide Out Navigation Sidebar */}
+      <div style={{
+        position: "fixed", top: 0, left: 0, bottom: 0, width: 280, background: "#111816",
+        borderRight: `1px solid ${cardBorder}`, zIndex: 1000, padding: 24, display: "flex", flexDirection: "column",
+        transform: isMenuOpen ? "translateX(0)" : "translateX(-100%)", transition: "transform 0.4s cubic-bezier(0.1, 1, 0.1, 1)"
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} onClick={() => { setView(currentUser ? "dashboard" : "landing"); setIsMenuOpen(false); }}>
-          <Target color={lime} size={22} />
-          <span style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 16, letterSpacing: 0.5 }}>CRAFTSKILL</span>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Target color={lime} size={20} />
+            <span style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 15 }}>CRAFTSKILL MENU</span>
+          </div>
+          <button onClick={() => setIsMenuOpen(false)} style={{ background: "transparent", border: "none", color: text, cursor: "pointer" }}><X size={20}/></button>
         </div>
 
-        <button 
-          onClick={() => setIsMenuOpen(!isMenuOpen)} 
-          style={{ 
-            display: "none", 
-            background: "transparent", 
-            border: "none", 
-            color: text, 
-            cursor: "pointer",
-            flexDirection: "column",
-            gap: "5px",
-            padding: "8px"
-          }}
-          className="hamburger-btn"
-        >
-          <div style={{ width: "22px", height: "2px", background: text, transition: "0.3s", transform: isMenuOpen ? "rotate(45deg) translate(5px, 5px)" : "none" }}></div>
-          <div style={{ width: "22px", height: "2px", background: text, opacity: isMenuOpen ? 0 : 1, transition: "0.3s" }}></div>
-          <div style={{ width: "22px", height: "2px", background: text, transition: "0.3s", transform: isMenuOpen ? "rotate(-45deg) translate(5px, -5px)" : "none" }}></div>
-        </button>
+        {currentUser && (
+          <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <User size={16} color={lime} />
+              <span style={{ fontWeight: 700, fontSize: 13.5, color: text }}>{currentUser.name}</span>
+            </div>
+            <div style={{ fontSize: 11, color: muted }}>SEO Score: <span style={{ color: amber, fontWeight: 700 }}>{currentUser.seoScore || 10} VPS</span></div>
+          </div>
+        )}
 
-        <div 
-          style={{ display: "flex", gap: 16, alignItems: "center" }}
-          className={`nav-links ${isMenuOpen ? "open" : ""}`}
-        >
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
           {currentUser ? (
             <>
-              <button onClick={() => { setView("dashboard"); setIsMenuOpen(false); }} style={navBtnStyle(view === "dashboard", lime)}>Dashboard</button>
-              <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} style={{ ...navBtnStyle(false, lime), color: muted }}>Logout</button>
+              <button onClick={() => { setDashSubView("account"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "account", lime, card)}><User size={16}/> Account & SEO Work</button>
+              <button onClick={() => { setDashSubView("dashboard"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "dashboard", lime, card)}><Target size={16}/> Dashboard</button>
+              <button onClick={() => { setDashSubView("clientChat"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "clientChat", lime, card)}><MessageSquare size={16}/> Client Chat</button>
+              <button onClick={() => { setDashSubView("referral"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "referral", lime, card)}><Users size={16}/> Referral System</button>
+              <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} style={{ ...sideMenuBtnStyle(false, lime, card), color: "#FF6B6B", marginTop: 'auto' }}>Logout</button>
             </>
           ) : (
             <>
-              <button onClick={() => { setView("login"); setIsMenuOpen(false); }} style={{ ...navBtnStyle(false, lime), color: muted }}>Login</button>
-              <button onClick={() => { setView("buy"); setIsMenuOpen(false); }} style={navBtnStyle(false, lime)}>Course Le Lein</button>
+              <button onClick={() => { setView("landing"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(view === "landing", lime, card)}>Home</button>
+              <button onClick={() => { setView("login"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(view === "login", lime, card)}>Login</button>
+              <button onClick={() => { setView("buy"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(view === "buy", lime, card)}>Course Le Lein</button>
             </>
           )}
-          <button onClick={() => { setView("admin"); loadAdminUsers(); setIsMenuOpen(false); }} style={{ background: "transparent", border: "none", color: muted, cursor: "pointer" }}>
+        </div>
+      </div>
+
+      {/* Dimmed Overlay when menu is open */}
+      {isMenuOpen && <div onClick={() => setIsMenuOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999 }} />}
+
+      <nav style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 24px", borderBottom: `1px solid ${cardBorder}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button onClick={() => setIsMenuOpen(true)} style={{ background: "transparent", border: "none", color: text, cursor: "pointer", display: "flex", alignItems: "center" }}>
+            <Menu size={24} color={lime} />
+          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} onClick={() => setView(currentUser ? "dashboard" : "landing")}>
+            <Target color={lime} size={22} />
+            <span style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 16, letterSpacing: 0.5 }}>CRAFTSKILL</span>
+          </div>
+        </div>
+        
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {!currentUser && (
+            <button onClick={() => setView("buy")} style={{ background: lime, color: "#0F1513", border: "none", padding: "8px 16px", borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Join Now</button>
+          )}
+          <button onClick={() => { setView("admin"); loadAdminUsers(); }} style={{ background: "transparent", border: "none", color: muted, cursor: "pointer" }}>
             <Lock size={16} />
           </button>
         </div>
       </nav>
 
       {view === "landing" && <Landing lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} onBuy={() => setView("buy")} />}
-
-      {view === "login" && (
-        <LoginFlow onLogin={handleLogin} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />
-      )}
-
+      {view === "login" && <LoginFlow onLogin={handleLogin} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />}
       {view === "buy" && (
-        <BuyFlow buyForm={buyForm} setBuyForm={setBuyForm} buyStep={buyStep} onPay={handlePurchase} onDone={finishPurchaseFlow}
-          onCheckPending={checkPendingPayment}
+        <BuyFlow buyForm={buyForm} setBuyForm={setBuyForm} buyStep={buyStep} onPay={handlePurchase} onDone={finishPurchaseFlow} onCheckPending={checkPendingPayment}
           lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />
       )}
 
       {view === "dashboard" && currentUser && (
-        <Dashboard user={currentUser} earnings={earningsFor(currentUser)} dailyLink={dailyLink}
-          lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} showToast={showToast} />
+        <div style={{ maxWidth: 720, margin: "0 auto", padding: "20px 24px" }}>
+          
+          {/* Main Subview Switching Dashboard Router */}
+          {dashSubView === "account" && (
+            <div>
+              <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                  <Award size={22} color={amber} />
+                  <h3 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18 }}>Editor Profile & SEO Tool</h3>
+                </div>
+                <p style={{ color: muted, fontSize: 13, marginBottom: 16 }}>Yahan se editors apna current running live work link add karke rank aur visibility boost kar sakte hain.</p>
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 12, color: text, display: "block", marginBottom: 6 }}>Add Live Work URL / Article Identifier</label>
+                  <input value={seoWorkInput} onChange={(e) => setSeoWorkInput(e.target.value)} placeholder="https://example.com/my-edited-project"
+                    style={{ width: "100%", background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "11px 12px", color: text, fontSize: 13, outline: "none" }} />
+                </div>
+                <button onClick={handleAddSeoWork} style={{ background: lime, color: "#0F1513", border: "none", padding: "10px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Save & Rank Up</button>
+              </div>
+
+              <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: text }}>Your Submitted Logs</div>
+                {(!currentUser.seoWorks || currentUser.seoWorks.length === 0) ? (
+                  <div style={{ color: muted, fontSize: 12.5 }}>Abhi tak koi logs submit nahi kiye gaye hain.</div>
+                ) : (
+                  currentUser.seoWorks.map((work, idx) => (
+                    <div key={work.id || idx} style={{ fontSize: 12.5, color: muted, padding: "8px 0", borderBottom: `1px solid ${cardBorder}`, wordBreak: 'break-all' }}>
+                      <span style={{ color: lime }}>[{work.date}]</span> {work.content}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+
+          {dashSubView === "dashboard" && (
+            <Dashboard user={currentUser} earnings={earningsFor(currentUser)} dailyLink={dailyLink} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} showToast={showToast} />
+          )}
+
+          {dashSubView === "clientChat" && (
+            <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 40, textAlign: "center" }}>
+              <MessageSquare size={36} color={amber} style={{ marginBottom: 14 }} />
+              <h3 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 8 }}>Client Interaction Website</h3>
+              <div style={{ display: "inline-block", background: "#2A2010", color: amber, fontSize: 12, padding: "4px 14px", borderRadius: 999, fontWeight: 700, marginBottom: 16 }}>STATUS: PENDING & DEVELOPMENT</div>
+              <p style={{ color: muted, fontSize: 13.5, maxWidth: 440, margin: "0 auto", lineHeight: 1.6 }}>Hum ek dedicated sub-platform ready kar rahe hain jahan direct international and local clients aakar editors se deal kar sakenge. Yeh functional hote hi yahan dashboard links map ho jayenge.</p>
+            </div>
+          )}
+
+          {dashSubView === "referral" && (
+            <div>
+              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center", background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28, marginBottom: 20 }}>
+                <GoalRing value={earningsFor(currentUser).today} max={Math.max(earningsFor(currentUser).monthly, 1)} color={lime} label={`₹${earningsFor(currentUser).total}`} sub="Referral Earned" />
+              </div>
+              <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  <Share2 size={16} color={amber} />
+                  <span style={{ fontWeight: 700, fontSize: 14 }}>Apna Unique Invite Manage Karein</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
+                  <span style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 16, color: amber, flex: 1 }}>{currentUser.referralCode}</span>
+                  <button onClick={() => { navigator.clipboard?.writeText(currentUser.referralCode); showToast("Code copy ho gaya"); }}
+                    style={{ background: "transparent", border: `1px solid ${cardBorder}`, color: muted, borderRadius: 8, padding: 6, cursor: "pointer" }}>
+                    <Copy size={14} />
+                  </button>
+                </div>
+                <div style={{ fontSize: 11.5, color: muted, wordBreak: "break-all" }}>https://craftskill-learning.com/buy?ref={currentUser.referralCode}</div>
+                <p style={{ fontSize: 12, color: muted, marginTop: 14 }}>Har ek success purchase conversion par aapke wallet mein instant <span style={{ color: lime, fontWeight: 700 }}>₹{REFERRAL_BONUS}</span> add kiya jayega.</p>
+              </div>
+            </div>
+          )}
+
+        </div>
       )}
 
       {view === "admin" && (
@@ -440,14 +508,14 @@ export default function App() {
       )}
 
       <footer style={{ textAlign: "center", padding: "28px 16px", color: muted, fontSize: 12, borderTop: `1px solid ${cardBorder}`, marginTop: 40 }}>
-        © Craftskill
+        © Craftskill Learning Environment
       </footer>
     </div>
   );
 }
 
-function navBtnStyle(active, lime) {
-  return { background: active ? lime : "transparent", color: active ? "#0F1513" : "#F2F5F0", border: `1px solid ${active ? lime : "#243029"}`, padding: "8px 16px", borderRadius: 999, fontSize: 13, fontWeight: 700, cursor: "pointer" };
+function sideMenuBtnStyle(active, lime, card) {
+  return { display: "flex", alignItems: "center", gap: 10, width: "100%", background: active ? lime : "transparent", color: active ? "#0F1513" : "#F2F5F0", border: "none", padding: "12px 14px", borderRadius: 8, fontSize: 13.5, fontWeight: 600, textAlign: "left", cursor: "pointer", transition: "0.2s" };
 }
 
 function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
@@ -455,30 +523,17 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
     <div>
       <section style={{ maxWidth: 960, margin: "0 auto", padding: "72px 24px 48px", textAlign: "center" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: card, border: `1px solid ${cardBorder}`, padding: "6px 14px", borderRadius: 999, fontSize: 12, color: amber, marginBottom: 24 }}>
-          <Flame size={14} /> Goal-based skill system
+          <Flame size={14} /> Structured Motivation Skill Stack
         </div>
         <h1 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: "clamp(32px, 6vw, 56px)", lineHeight: 1.05, marginBottom: 20 }}>
-          Apna <span style={{ color: lime }}>Goal Scale</span> hit karo.<br />By craftskill learn skill with your own motivation.
+          Apna <span style={{ color: lime }}>Goal Scale</span> hit karo.<br />By Craftskill learn skills with execution logic.
         </h1>
         <p style={{ color: muted, fontSize: 16, maxWidth: 520, margin: "0 auto 32px" }}>
-          Har din ek naya practical step. Structured plan, koi confusion nahi.
+          Daily live link assignment aur systematic growth metrics tracking panels.
         </p>
         <button onClick={onBuy} style={{ background: lime, color: "#0F1513", border: "none", padding: "14px 32px", borderRadius: 999, fontWeight: 800, fontSize: 15, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-          Course Shuru Kare — ₹{COURSE_PRICE} <ArrowRight size={16} />
+          Course Access Kare — ₹{COURSE_PRICE} <ArrowRight size={16} />
         </button>
-      </section>
-      <section style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px 72px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
-        {[
-          { icon: Target, title: "Daily Goal Link", desc: "Har din naya session/link, seedha aapke dashboard mein." },
-          { icon: TrendingUp, title: "Track Progress", desc: "Weekly aur monthly progress ek nazar mein." },
-          { icon: Users, title: "Referral Wallet", desc: `Apna code share karo, referral se ₹${REFERRAL_BONUS} har purchase par.` },
-        ].map((f, i) => (
-          <div key={i} style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24 }}>
-            <f.icon color={lime} size={22} style={{ marginBottom: 12 }} />
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>{f.title}</div>
-            <div style={{ color: muted, fontSize: 13.5, lineHeight: 1.5 }}>{f.desc}</div>
-          </div>
-        ))}
       </section>
     </div>
   );
@@ -487,17 +542,15 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
 function LoginFlow({ onLogin, lime, amber, muted, card, cardBorder }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
   return (
     <div style={{ maxWidth: 440, margin: "0 auto", padding: "56px 24px" }}>
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28 }}>
-        <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 8 }}>Wapas Login Karein</h2>
-        <p style={{ color: muted, fontSize: 13.5, marginBottom: 20 }}>Apni registered Gmail ID aur Password se login karein.</p>
-        <FieldInput label="Gmail ID" value={email} onChange={(v) => setEmail(v)} muted={muted} cardBorder={cardBorder} />
-        <FieldInput label="Password" type="password" value={password} onChange={(v) => setPassword(v)} muted={muted} cardBorder={cardBorder} />
-
+        <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 8 }}>Craftskill Member Login</h2>
+        <p style={{ color: muted, fontSize: 13.5, marginBottom: 20 }}>Apni secure Gmail ID aur password credentials dalkar continue karein.</p>
+        <FieldInput label="Gmail ID Address" value={email} onChange={(v) => setEmail(v)} muted={muted} cardBorder={cardBorder} />
+        <FieldInput label="Secure Account Password" type="password" value={password} onChange={(v) => setPassword(v)} muted={muted} cardBorder={cardBorder} />
         <button onClick={() => onLogin(email, password)} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 10, fontWeight: "bold", marginTop: 10, cursor: "pointer" }}>
-          Dashboard Kholein
+          Verify & Open Dashboard
         </button>
       </div>
     </div>
@@ -511,24 +564,22 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28 }}>
         {buyStep === "form" && (
           <>
-            <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Course Kharido — ₹{COURSE_PRICE}</h2>
+            <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Setup Account — ₹{COURSE_PRICE}</h2>
             {hasPending && (
               <div style={{ background: "#0F1513", border: `1px solid ${amber}`, borderRadius: 12, padding: 14, marginBottom: 18 }}>
-                <div style={{ fontSize: 13, color: amber, fontWeight: 700, marginBottom: 8 }}>Pehle se ek payment pending hai</div>
-                <div style={{ fontSize: 12.5, color: muted, marginBottom: 10 }}>Agar aapne UPI se payment kar diya hai, to yahan tap karke confirm karein.</div>
+                <div style={{ fontSize: 13, color: amber, fontWeight: 700, marginBottom: 8 }}>Previous Payment Detected</div>
                 <button onClick={onCheckPending} style={{ width: "100%", background: amber, color: "#0F1513", border: "none", padding: "10px", borderRadius: 10, fontWeight: 800, cursor: "pointer" }}>
-                  Maine Payment Kar Diya — Check Karein
+                  Verify Status Now
                 </button>
               </div>
             )}
-            <FieldInput label="Naam" value={buyForm.name} onChange={(v) => setBuyForm({ ...buyForm, name: v })} muted={muted} cardBorder={cardBorder} />
-            <FieldInput label="Phone Number" value={buyForm.phone} onChange={(v) => setBuyForm({ ...buyForm, phone: v })} muted={muted} cardBorder={cardBorder} />
-            <FieldInput label="Gmail ID" value={buyForm.email} onChange={(v) => setBuyForm({ ...buyForm, email: v })} muted={muted} cardBorder={cardBorder} />
-            <FieldInput label="Password" type="password" value={buyForm.password} onChange={(v) => setBuyForm({ ...buyForm, password: v })} muted={muted} cardBorder={cardBorder} />
-            <FieldInput label="Referral Code" value={buyForm.refCode} onChange={(v) => setBuyForm({ ...buyForm, refCode: v })} muted={muted} cardBorder={cardBorder} optional />
-            
+            <FieldInput label="Full Name" value={buyForm.name} onChange={(v) => setBuyForm({ ...buyForm, name: v })} muted={muted} cardBorder={cardBorder} />
+            <FieldInput label="Active WhatsApp Phone" value={buyForm.phone} onChange={(v) => setBuyForm({ ...buyForm, phone: v })} muted={muted} cardBorder={cardBorder} />
+            <FieldInput label="Gmail ID (For future Logins)" value={buyForm.email} onChange={(v) => setBuyForm({ ...buyForm, email: v })} muted={muted} cardBorder={cardBorder} />
+            <FieldInput label="Set Secure Password" type="password" value={buyForm.password} onChange={(v) => setBuyForm({ ...buyForm, password: v })} muted={muted} cardBorder={cardBorder} />
+            <FieldInput label="Referral Code (Optional)" value={buyForm.refCode} onChange={(v) => setBuyForm({ ...buyForm, refCode: v })} muted={muted} cardBorder={cardBorder} optional />
             <button onClick={onPay} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, marginTop: 10, cursor: "pointer" }}>
-              Pay ₹{COURSE_PRICE}
+              Secure Pay ₹{COURSE_PRICE}
             </button>
           </>
         )}
@@ -536,17 +587,14 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
           <div style={{ textAlign: "center", padding: "24px 0" }}>
             <div style={{ width: 40, height: 40, border: `3px solid ${cardBorder}`, borderTopColor: lime, borderRadius: "50%", margin: "0 auto 16px", animation: "spin 0.8s linear infinite" }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            <div style={{ color: muted, fontSize: 14 }}>Payment page par le ja rahe hain...</div>
+            <div style={{ color: muted, fontSize: 14 }}>Gateway redirection initiated...</div>
           </div>
         )}
         {buyStep === "done" && (
           <div style={{ textAlign: "center", padding: "16px 0" }}>
             <CheckCircle2 color={lime} size={40} style={{ marginBottom: 12 }} />
-            <h3 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 8 }}>Payment Successful!</h3>
-            <p style={{ color: muted, fontSize: 13.5, marginBottom: 20 }}>Aapka course activate ho gaya.</p>
-            <button onClick={onDone} style={{ background: lime, color: "#0F1513", border: "none", padding: "12px 24px", borderRadius: 999, fontWeight: 800, cursor: "pointer" }}>
-              Dashboard Kholein
-            </button>
+            <h3 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 8 }}>Activation Done!</h3>
+            <button onClick={onDone} style={{ background: lime, color: "#0F1513", border: "none", padding: "12px 24px", borderRadius: 999, fontWeight: 800, cursor: "pointer" }}>Go To Dashboard</button>
           </div>
         )}
       </div>
@@ -554,63 +602,41 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
   );
 }
 
-function FieldInput({ label, value, onChange, muted, cardBorder, optional }) {
+function FieldInput({ label, value, onChange, muted, cardBorder, optional, type = "text" }) {
   return (
     <div style={{ marginBottom: 14 }}>
       <label style={{ fontSize: 12, color: muted, display: "block", marginBottom: 6 }}>{label}{optional && " (optional)"}</label>
-      <input value={value || ''} onChange={(e) => onChange(e.target.value)}
+      <input type={type} value={value || ''} onChange={(e) => onChange(e.target.value)}
         style={{ width: "100%", background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "11px 12px", color: "#F2F5F0", fontSize: 14, outline: "none" }} />
     </div>
   );
 }
 
 function Dashboard({ user, earnings, dailyLink, lime, amber, muted, card, cardBorder, showToast }) {
-  const shareUrl = `https://yourdomain.com/buy?ref=${user.referralCode}`;
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
+    <div>
       <div style={{ marginBottom: 24 }}>
-        <div style={{ color: muted, fontSize: 13 }}>Welcome back,</div>
+        <div style={{ color: muted, fontSize: 13 }}>Logged in successfully,</div>
         <div style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 26 }}>{user.name}</div>
-        {user.isReseller && (
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#2A2418", color: amber, padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700, marginTop: 8 }}>
-            <ShieldCheck size={12} /> RESELLER
-          </div>
-        )}
       </div>
       <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center", background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28, marginBottom: 20 }}>
-        <GoalRing value={earnings.today} max={Math.max(earnings.monthly, 1)} color={lime} label={`₹${earnings.total}`} sub="Total Earned" />
+        <GoalRing value={earnings.today} max={Math.max(earnings.monthly, 1)} color={lime} label={`₹${earnings.total}`} sub="Total Reseller Cash" />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14, marginBottom: 20 }}>
-        <StatCard label="Today's Earning" value={earnings.today} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
-        <StatCard label="Weekly Earning" value={earnings.weekly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
-        <StatCard label="Monthly Earning" value={earnings.monthly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
-        <StatCard label="Total Earning" value={earnings.total} muted={muted} card={card} cardBorder={cardBorder} amber={amber} highlight />
+        <StatCard label="Today" value={earnings.today} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
+        <StatCard label="Weekly" value={earnings.weekly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
+        <StatCard label="Monthly" value={earnings.monthly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
       </div>
-      <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20, marginBottom: 16 }}>
+      <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
           <Link2 size={16} color={lime} />
-          <span style={{ fontWeight: 700, fontSize: 14 }}>Aaj Ka Course Link</span>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>Daily Active Lesson Resource</span>
         </div>
         {dailyLink.url ? (
           <a href={dailyLink.url} target="_blank" rel="noreferrer" style={{ color: lime, fontSize: 13.5, wordBreak: "break-all" }}>{dailyLink.label || dailyLink.url}</a>
         ) : (
-          <div style={{ color: muted, fontSize: 13.5 }}>{dailyLink.label || "Koi link available nahi hai."}</div>
+          <div style={{ color: muted, fontSize: 13.5 }}>{dailyLink.label || "No stream mapping update for today."}</div>
         )}
-      </div>
-      <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <Share2 size={16} color={amber} />
-          <span style={{ fontWeight: 700, fontSize: 14 }}>Apna Referral Code Share Karo</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
-          <span style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 16, color: amber, flex: 1 }}>{user.referralCode}</span>
-          <button onClick={() => { navigator.clipboard?.writeText(user.referralCode); showToast("Code copy ho gaya"); }}
-            style={{ background: "transparent", border: `1px solid ${cardBorder}`, color: muted, borderRadius: 8, padding: 6, cursor: "pointer" }}>
-            <Copy size={14} />
-          </button>
-        </div>
-        <div style={{ fontSize: 11.5, color: muted, wordBreak: "break-all" }}>{shareUrl}</div>
-        <p style={{ fontSize: 11.5, color: muted, marginTop: 10 }}>Koi is code se course kharide to aapko ₹{REFERRAL_BONUS} credit hoga.</p>
       </div>
     </div>
   );
@@ -634,12 +660,10 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpd
       <div style={{ maxWidth: 360, margin: "0 auto", padding: "72px 24px" }}>
         <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, textAlign: "center" }}>
           <Lock color={lime} size={22} style={{ marginBottom: 12 }} />
-          <div style={{ fontWeight: 700, marginBottom: 12 }}>Admin Access</div>
+          <div style={{ fontWeight: 700, marginBottom: 12 }}>Admin Controller Gate</div>
           <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Passcode"
             style={{ width: "100%", background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "10px 12px", color: "#F2F5F0", marginBottom: 12 }} />
-          <button onClick={onUnlock} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "10px", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>
-            Unlock
-          </button>
+          <button onClick={onUnlock} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "10px", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>Unlock</button>
         </div>
       </div>
     );
@@ -649,27 +673,24 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpd
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
-      <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Admin Panel</h2>
+      <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Craftskill Management Console</h2>
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20, marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, marginBottom: 12 }}>Daily Course Link Update Karein</div>
+        <div style={{ fontWeight: 700, marginBottom: 12 }}>Update Dynamic Daily Link</div>
         <FieldInput label="Link URL" value={urlInput} onChange={setUrlInput} muted={muted} cardBorder={cardBorder} />
-        <FieldInput label="Label / Description" value={labelInput} onChange={setLabelInput} muted={muted} cardBorder={cardBorder} optional />
-        <button onClick={() => onUpdateLink(urlInput, labelInput)} style={{ background: lime, color: "#0F1513", border: "none", padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>
-          Update Link
-        </button>
+        <FieldInput label="Label / Text" value={labelInput} onChange={setLabelInput} muted={muted} cardBorder={cardBorder} optional />
+        <button onClick={() => onUpdateLink(urlInput, labelInput)} style={{ background: lime, color: "#0F1513", border: "none", padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>Push Broadcast Link</button>
       </div>
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
-        <div style={{ fontWeight: 700, marginBottom: 12 }}>Users ({normalizedUsers.length})</div>
-        {normalizedUsers.length === 0 && <div style={{ color: muted, fontSize: 13 }}>Abhi koi user nahi hai.</div>}
+        <div style={{ fontWeight: 700, marginBottom: 12 }}>Registered Active Learners ({normalizedUsers.length})</div>
         {normalizedUsers.map((u) => (
           <div key={u.phone} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${cardBorder}` }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600 }}>{u.name} <span style={{ color: muted, fontWeight: 400, fontSize: 12 }}>· {u.phone}</span></div>
-              <div style={{ fontSize: 11.5, color: muted }}>Email: {u.email || "N/A"} · Code: {u.referralCode} {u.referredBy && `· Ref by: ${u.referredBy}`}</div>
+              <div style={{ fontSize: 11.5, color: muted }}>Email: {u.email || "N/A"} · Code: {u.referralCode} · Score: {u.seoScore || 10} VPS</div>
             </div>
             <button onClick={() => onToggleReseller(u.phone, u.isReseller)}
               style={{ background: u.isReseller ? amber : "transparent", color: u.isReseller ? "#0F1513" : muted, border: `1px solid ${u.isReseller ? amber : cardBorder}`, borderRadius: 999, padding: "5px 12px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
-              {u.isReseller ? "Reseller ✓" : "Make Reseller"}
+              {u.isReseller ? "Reseller Active ✓" : "Promote to Reseller"}
             </button>
           </div>
         ))}
