@@ -601,7 +601,7 @@ function sideMenuBtnStyle(active, lime, card) {
 }
 
 /* ---- LANDING PAGE ---- */
-: 13, function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
+function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
   return (
     <div style={{ maxWidth: 800, margin: "0 auto", padding: "40px 20px", textAlign: "center" }}>
       <h1 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 32, marginBottom: 16 }}>
@@ -664,8 +664,6 @@ function sideMenuBtnStyle(active, lime, card) {
       </div>
     </div>
   );
-}
-
 }
 
 
