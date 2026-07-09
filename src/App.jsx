@@ -238,6 +238,22 @@ export default function App() {
     }
   }
 
+  async function handleLogin(phone) {
+    if (!phone.trim() || phone.trim().length < 8) {
+      showToast("Sahi phone number daalein");
+      return;
+    }
+    const u = await getUser(phone.trim());
+    if (u && u.purchased) {
+      localStorage.setItem("cashcraft_session", phone.trim());
+      setCurrentPhone(phone.trim());
+      setCurrentUser(u);
+      setView("dashboard");
+    } else {
+      showToast("Is number se koi account nahi mila");
+    }
+  }
+
   function finishPurchaseFlow() {
     setView("dashboard");
     setBuyStep("form");
@@ -324,7 +340,10 @@ export default function App() {
               <button onClick={handleLogout} style={{ ...navBtnStyle(false, lime), color: muted }}>Logout</button>
             </>
           ) : (
-            <button onClick={() => setView("buy")} style={navBtnStyle(false, lime)}>Course Le Lein</button>
+            <>
+              <button onClick={() => setView("login")} style={{ ...navBtnStyle(false, lime), color: muted }}>Login</button>
+              <button onClick={() => setView("buy")} style={navBtnStyle(false, lime)}>Course Le Lein</button>
+            </>
           )}
           <button onClick={() => { setView("admin"); loadAdminUsers(); }} style={{ background: "transparent", border: "none", color: muted, cursor: "pointer" }}>
             <Lock size={16} />
@@ -333,6 +352,10 @@ export default function App() {
       </nav>
 
       {view === "landing" && <Landing lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} onBuy={() => setView("buy")} />}
+
+      {view === "login" && (
+        <LoginFlow onLogin={handleLogin} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />
+      )}
 
       {view === "buy" && (
         <BuyFlow buyForm={buyForm} setBuyForm={setBuyForm} buyStep={buyStep} onPay={handlePurchase} onDone={finishPurchaseFlow}
@@ -393,6 +416,22 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
           </div>
         ))}
       </section>
+    </div>
+  );
+}
+
+function LoginFlow({ onLogin, lime, amber, muted, card, cardBorder }) {
+  const [phone, setPhone] = useState("");
+  return (
+    <div style={{ maxWidth: 440, margin: "0 auto", padding: "56px 24px" }}>
+      <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28 }}>
+        <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 8 }}>Wapas Login Karein</h2>
+        <p style={{ color: muted, fontSize: 13.5, marginBottom: 20 }}>Wahi phone number daalein jisse course kharida tha.</p>
+        <FieldInput label="Phone Number" value={phone} onChange={setPhone} muted={muted} cardBorder={cardBorder} />
+        <button onClick={() => onLogin(phone)} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, marginTop: 10, cursor: "pointer" }}>
+          Dashboard Kholein
+        </button>
+      </div>
     </div>
   );
 }
