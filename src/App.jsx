@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Flame, Target, Copy, Share2, ShieldCheck, Link2, Users,
-  TrendingUp, CheckCircle2, ArrowRight, Lock, Menu, X, User, MessageSquare, Briefcase, Award
+  TrendingUp, CheckCircle2, ArrowRight, Lock, Menu, X, User, MessageSquare, Camera, UploadCloud, Video, ImageIcon, DollarSign
 } from "lucide-react";
 import {
   getUser, setUser, getAllUsers, findByReferralCode, getDailyLink, setDailyLink,
@@ -44,6 +44,18 @@ function GoalRing({ value, max, size = 108, stroke = 10, color = "#B4FF39", labe
   );
 }
 
+// Naya function jo earnings ko separate karta hai (client ya referral)
+function getEarnings(user, category) {
+  if (!user) return { today: 0, weekly: 0, monthly: 0, total: 0 };
+  const tx = (user.transactions || []).filter(t => t.category === category || (!t.category && category === "referral"));
+  return {
+    today: tx.filter((t) => t.date === todayStr()).reduce((s, t) => s + t.amount, 0),
+    weekly: tx.filter((t) => daysAgo(t.date) < 7).reduce((s, t) => s + t.amount, 0),
+    monthly: tx.filter((t) => daysAgo(t.date) < 30).reduce((s, t) => s + t.amount, 0),
+    total: tx.reduce((s, t) => s + t.amount, 0),
+  };
+}
+
 export default function App() {
   const [dailyLink, setDailyLinkState] = useState({ url: "", label: "" });
   const [currentPhone, setCurrentPhone] = useState(null);
@@ -51,14 +63,13 @@ export default function App() {
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("landing");
-  const [dashSubView, setDashSubView] = useState("dashboard"); // Dashboard sub-navigation state
+  const [dashSubView, setDashSubView] = useState("dashboard"); 
   const [buyForm, setBuyForm] = useState({ name: '', phone: '', email: '', password: '', refCode: '' });
   const [buyStep, setBuyStep] = useState("form");
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [adminPass, setAdminPass] = useState("");
   const [toast, setToast] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [seoWorkInput, setSeoWorkInput] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -115,7 +126,7 @@ export default function App() {
     })();
   }, []);
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 2500); };
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   async function handlePurchase() {
     const { name, phone, refCode, email, password } = buyForm;
@@ -176,8 +187,8 @@ export default function App() {
       referredBy: referrer ? referrer.referralCode : null,
       isReseller: false,
       transactions: [],
-      seoWorks: [],
-      seoScore: 10,
+      profilePic: "", 
+      portfolio: [],
     };
     userData.purchased = true;
     userData.purchaseDate = todayStr();
@@ -192,7 +203,8 @@ export default function App() {
         ...referrer,
         transactions: [
           ...(referrer.transactions || []),
-          { id: uid(), date: todayStr(), amount: REFERRAL_BONUS, type: "credit", source: `Referral: ${name} registered` },
+          // Referral bonus ki category set kar di gayi hai
+          { id: uid(), date: todayStr(), amount: REFERRAL_BONUS, type: "credit", category: "referral", source: `Referral: ${name} registered` },
         ],
       };
       await setUser(referrer.phone, updatedReferrer);
@@ -260,21 +272,41 @@ export default function App() {
     }
   }
 
-  async function handleAddSeoWork() {
-    if (!seoWorkInput.trim()) {
-      showToast("Work link ya details Khali nahi chhod sakte!");
+  const handleDpUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const updatedUser = { ...currentUser, profilePic: event.target.result };
+      await setUser(currentPhone, updatedUser);
+      setCurrentUser(updatedUser);
+      showToast("Profile Photo Update Ho Gayi!");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePortfolioUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+      showToast("File 5MB se choti honi chahiye test karne ke liye.");
       return;
     }
-    const updatedUser = {
-      ...currentUser,
-      seoWorks: [...(currentUser.seoWorks || []), { id: uid(), date: todayStr(), content: seoWorkInput.trim() }],
-      seoScore: (currentUser.seoScore || 10) + 15, 
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const isVideo = file.type.startsWith("video");
+      const newItem = { id: uid(), data: event.target.result, type: isVideo ? 'video' : 'image' };
+      const updatedUser = { ...currentUser, portfolio: [...(currentUser.portfolio || []), newItem] };
+      
+      await setUser(currentPhone, updatedUser);
+      setCurrentUser(updatedUser);
+      showToast("Aapka work upload ho gaya!");
     };
-    await setUser(currentPhone, updatedUser);
-    setCurrentUser(updatedUser);
-    setSeoWorkInput("");
-    showToast("Work saved! SEO Ranking Improved!");
-  }
+    reader.readAsDataURL(file);
+  };
 
   function handleLogout() {
     localStorage.removeItem("craftskill_session");
@@ -295,6 +327,25 @@ export default function App() {
     const users = await getAllUsers();
     setAllUsers(users);
   }
+  
+  // Admin function to simulate client payments
+  async function addClientPayment(targetPhone, amountStr) {
+    const amount = Number(amountStr);
+    if (!amount) return;
+    const dbUsers = await getAllUsers();
+    const usersList = Array.isArray(dbUsers) ? dbUsers : Object.values(dbUsers || {});
+    const targetUser = usersList.find(u => u.phone === targetPhone);
+    if (targetUser) {
+      const newTx = { id: uid(), date: todayStr(), amount, type: "credit", category: "client", source: "Client Payment Received" };
+      const updatedUser = { ...targetUser, transactions: [...(targetUser.transactions || []), newTx] };
+      await setUser(targetPhone, updatedUser);
+      if (currentPhone === targetPhone) {
+        setCurrentUser(updatedUser);
+      }
+      loadAdminUsers();
+      showToast(`₹${amount} Client payment added!`);
+    }
+  }
 
   async function loadAdminUsers() {
     const users = await getAllUsers();
@@ -308,22 +359,15 @@ export default function App() {
     showToast("Daily link update ho gaya");
   }
 
-  function earningsFor(user) {
-    if (!user) return { today: 0, weekly: 0, monthly: 0, total: 0 };
-    const tx = user.transactions || [];
-    return {
-      today: tx.filter((t) => t.date === todayStr()).reduce((s, t) => s + t.amount, 0),
-      weekly: tx.filter((t) => daysAgo(t.date) < 7).reduce((s, t) => s + t.amount, 0),
-      monthly: tx.filter((t) => daysAgo(t.date) < 30).reduce((s, t) => s + t.amount, 0),
-      total: tx.reduce((s, t) => s + t.amount, 0),
-    };
-  }
-
   const fontLink = (
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&display=swap');
       * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
       body { background: #0F1513; overflow-x: hidden; }
+      
+      /* Hide scrollbar for grid */
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     `}</style>
   );
 
@@ -341,6 +385,10 @@ export default function App() {
 
   const bg = "#0F1513", card = "#161F1C", cardBorder = "#243029";
   const lime = "#B4FF39", amber = "#FFB238", muted = "#8A9A94", text = "#F2F5F0";
+
+  // Naya earnings calculation (Client aur Referral alag-alag)
+  const clientEarnings = getEarnings(currentUser, "client");
+  const referralEarnings = getEarnings(currentUser, "referral");
 
   return (
     <div style={{ minHeight: "100vh", background: bg, color: text, position: "relative" }}>
@@ -368,18 +416,19 @@ export default function App() {
 
         {currentUser && (
           <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 12, padding: 14, marginBottom: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <User size={16} color={lime} />
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+              <img src={currentUser.profilePic || "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback"} 
+                   alt="Profile" style={{ width: 32, height: 32, borderRadius: "50%", border: `1px solid ${lime}`, objectFit: "cover", backgroundColor: "#0F1513" }} />
               <span style={{ fontWeight: 700, fontSize: 13.5, color: text }}>{currentUser.name}</span>
             </div>
-            <div style={{ fontSize: 11, color: muted }}>SEO Score: <span style={{ color: amber, fontWeight: 700 }}>{currentUser.seoScore || 10} VPS</span></div>
+            <div style={{ fontSize: 11, color: muted }}>Works: <span style={{ color: amber, fontWeight: 700 }}>{(currentUser.portfolio || []).length} Uploads</span></div>
           </div>
         )}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1 }}>
           {currentUser ? (
             <>
-              <button onClick={() => { setDashSubView("account"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "account", lime, card)}><User size={16}/> Account & SEO Work</button>
+              <button onClick={() => { setDashSubView("account"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "account", lime, card)}><User size={16}/> Account & Profile</button>
               <button onClick={() => { setDashSubView("dashboard"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "dashboard", lime, card)}><Target size={16}/> Dashboard</button>
               <button onClick={() => { setDashSubView("clientChat"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "clientChat", lime, card)}><MessageSquare size={16}/> Client Chat</button>
               <button onClick={() => { setDashSubView("referral"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "referral", lime, card)}><Users size={16}/> Referral System</button>
@@ -395,7 +444,6 @@ export default function App() {
         </div>
       </div>
 
-      {/* Dimmed Overlay when menu is open */}
       {isMenuOpen && <div onClick={() => setIsMenuOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999 }} />}
 
       <nav style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 24px", borderBottom: `1px solid ${cardBorder}` }}>
@@ -429,40 +477,71 @@ export default function App() {
       {view === "dashboard" && currentUser && (
         <div style={{ maxWidth: 720, margin: "0 auto", padding: "20px 24px" }}>
           
-          {/* Main Subview Switching Dashboard Router */}
+          {/* ---- ACCOUNT & PROFILE SECTION ---- */}
           {dashSubView === "account" && (
             <div>
               <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                  <Award size={22} color={amber} />
-                  <h3 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18 }}>Editor Profile & SEO Tool</h3>
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 20 }}>
+                  <div style={{ position: "relative" }}>
+                    <img src={currentUser.profilePic || "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback"} 
+                         alt="DP" style={{ width: 80, height: 80, borderRadius: "50%", border: `2px solid ${lime}`, objectFit: "cover", backgroundColor: "#0F1513" }} />
+                    <label style={{ position: "absolute", bottom: -5, right: -5, background: lime, padding: 6, borderRadius: "50%", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Camera size={14} color="#0F1513" />
+                      <input type="file" accept="image/*" onChange={handleDpUpload} style={{ display: "none" }} />
+                    </label>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 20, marginBottom: 4 }}>{currentUser.name}</h2>
+                    <div style={{ fontSize: 13, color: muted, marginBottom: 2 }}>📧 {currentUser.email || "Email not set"}</div>
+                    <div style={{ fontSize: 13, color: muted, marginBottom: 12 }}>📞 {currentUser.phone}</div>
+                    <div style={{ display: "inline-block", fontSize: 11, background: "#0F1513", border: `1px solid ${amber}`, color: amber, padding: "4px 10px", borderRadius: 999, fontWeight: 700 }}>
+                      Creative Editor & Designer
+                    </div>
+                  </div>
                 </div>
-                <p style={{ color: muted, fontSize: 13, marginBottom: 16 }}>Yahan se editors apna current running live work link add karke rank aur visibility boost kar sakte hain.</p>
-                <div style={{ marginBottom: 14 }}>
-                  <label style={{ fontSize: 12, color: text, display: "block", marginBottom: 6 }}>Add Live Work URL / Article Identifier</label>
-                  <input value={seoWorkInput} onChange={(e) => setSeoWorkInput(e.target.value)} placeholder="https://example.com/my-edited-project"
-                    style={{ width: "100%", background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "11px 12px", color: text, fontSize: 13, outline: "none" }} />
-                </div>
-                <button onClick={handleAddSeoWork} style={{ background: lime, color: "#0F1513", border: "none", padding: "10px 18px", borderRadius: 8, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>Save & Rank Up</button>
               </div>
 
               <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12, color: text }}>Your Submitted Logs</div>
-                {(!currentUser.seoWorks || currentUser.seoWorks.length === 0) ? (
-                  <div style={{ color: muted, fontSize: 12.5 }}>Abhi tak koi logs submit nahi kiye gaye hain.</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>My Portfolio / Works</div>
+                  <label style={{ background: lime, color: "#0F1513", padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                    <UploadCloud size={16} /> Upload Work
+                    <input type="file" accept="image/*,video/*" onChange={handlePortfolioUpload} style={{ display: "none" }} />
+                  </label>
+                </div>
+                
+                <p style={{ color: muted, fontSize: 12.5, marginBottom: 16 }}>Apni best edited videos ya thumbnails yahan upload karein taaki clients dekh sakein.</p>
+
+                {(!currentUser.portfolio || currentUser.portfolio.length === 0) ? (
+                  <div style={{ textAlign: "center", padding: "30px 10px", border: `1px dashed ${cardBorder}`, borderRadius: 12 }}>
+                    <ImageIcon size={32} color={muted} style={{ marginBottom: 10, opacity: 0.5 }} />
+                    <div style={{ color: muted, fontSize: 13 }}>Abhi tak koi work upload nahi kiya.</div>
+                  </div>
                 ) : (
-                  currentUser.seoWorks.map((work, idx) => (
-                    <div key={work.id || idx} style={{ fontSize: 12.5, color: muted, padding: "8px 0", borderBottom: `1px solid ${cardBorder}`, wordBreak: 'break-all' }}>
-                      <span style={{ color: lime }}>[{work.date}]</span> {work.content}
-                    </div>
-                  ))
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 12 }}>
+                    {currentUser.portfolio.map((item) => (
+                      <div key={item.id} style={{ background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 8, overflow: "hidden", position: "relative", aspectRatio: "16/9" }}>
+                        {item.type === 'video' ? (
+                          <>
+                            <video src={item.data} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.3)" }}>
+                              <Video size={24} color="#FFF" />
+                            </div>
+                          </>
+                        ) : (
+                          <img src={item.data} alt="Thumbnail" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
           )}
 
+          {/* ---- MAIN DASHBOARD (ONLY CLIENT EARNINGS) ---- */}
           {dashSubView === "dashboard" && (
-            <Dashboard user={currentUser} earnings={earningsFor(currentUser)} dailyLink={dailyLink} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} showToast={showToast} />
+            <Dashboard user={currentUser} earnings={clientEarnings} dailyLink={dailyLink} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} showToast={showToast} />
           )}
 
           {dashSubView === "clientChat" && (
@@ -470,14 +549,16 @@ export default function App() {
               <MessageSquare size={36} color={amber} style={{ marginBottom: 14 }} />
               <h3 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 8 }}>Client Interaction Website</h3>
               <div style={{ display: "inline-block", background: "#2A2010", color: amber, fontSize: 12, padding: "4px 14px", borderRadius: 999, fontWeight: 700, marginBottom: 16 }}>STATUS: PENDING & DEVELOPMENT</div>
-              <p style={{ color: muted, fontSize: 13.5, maxWidth: 440, margin: "0 auto", lineHeight: 1.6 }}>Hum ek dedicated sub-platform ready kar rahe hain jahan direct international and local clients aakar editors se deal kar sakenge. Yeh functional hote hi yahan dashboard links map ho jayenge.</p>
+              <p style={{ color: muted, fontSize: 13.5, maxWidth: 440, margin: "0 auto", lineHeight: 1.6 }}>Hum ek dedicated sub-platform ready kar rahe hain jahan direct international and local clients aakar editors se deal kar sakenge. Yeh functional hote hi aapki Client Earnings dashboard me update hone lagengi.</p>
             </div>
           )}
 
+          {/* ---- REFERRAL PAGE (ONLY REFERRAL EARNINGS) ---- */}
           {dashSubView === "referral" && (
             <div>
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center", background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28, marginBottom: 20 }}>
-                <GoalRing value={earningsFor(currentUser).today} max={Math.max(earningsFor(currentUser).monthly, 1)} color={lime} label={`₹${earningsFor(currentUser).total}`} sub="Referral Earned" />
+                {/* Referral Earnings Goal Ring */}
+                <GoalRing value={referralEarnings.today} max={Math.max(referralEarnings.monthly, 1)} color={lime} label={`₹${referralEarnings.total}`} sub="Referral Earned" />
               </div>
               <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
@@ -492,7 +573,7 @@ export default function App() {
                   </button>
                 </div>
                 <div style={{ fontSize: 11.5, color: muted, wordBreak: "break-all" }}>https://craftskill-learning.com/buy?ref={currentUser.referralCode}</div>
-                <p style={{ fontSize: 12, color: muted, marginTop: 14 }}>Har ek success purchase conversion par aapke wallet mein instant <span style={{ color: lime, fontWeight: 700 }}>₹{REFERRAL_BONUS}</span> add kiya jayega.</p>
+                <p style={{ fontSize: 12, color: muted, marginTop: 14 }}>Har ek success purchase conversion par aapke wallet mein instant <span style={{ color: lime, fontWeight: 700 }}>₹{REFERRAL_BONUS}</span> add kiya jayega. Yeh amount sirf yahi dikhega.</p>
               </div>
             </div>
           )}
@@ -504,6 +585,7 @@ export default function App() {
         <AdminPanel unlocked={adminUnlocked} pass={adminPass} setPass={setAdminPass}
           onUnlock={() => { if (adminPass === ADMIN_PASSCODE) { setAdminUnlocked(true); loadAdminUsers(); } else showToast("Galat passcode"); }}
           users={allUsers} dailyLink={dailyLink} onUpdateLink={updateDailyLink} onToggleReseller={toggleReseller}
+          onAddClientPayment={addClientPayment}
           lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />
       )}
 
@@ -518,6 +600,7 @@ function sideMenuBtnStyle(active, lime, card) {
   return { display: "flex", alignItems: "center", gap: 10, width: "100%", background: active ? lime : "transparent", color: active ? "#0F1513" : "#F2F5F0", border: "none", padding: "12px 14px", borderRadius: 8, fontSize: 13.5, fontWeight: 600, textAlign: "left", cursor: "pointer", transition: "0.2s" };
 }
 
+/* ---- LANDING PAGE ---- */
 function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
   return (
     <div>
@@ -529,11 +612,25 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
           Apna <span style={{ color: lime }}>Goal Scale</span> hit karo.<br />By Craftskill learn skills with execution logic.
         </h1>
         <p style={{ color: muted, fontSize: 16, maxWidth: 520, margin: "0 auto 32px" }}>
-          Daily live link assignment aur systematic growth metrics tracking panels.
+          Har din ek naya practical step. Structured plan, koi confusion nahi. Daily live link assignment aur systematic growth metrics tracking panels.
         </p>
         <button onClick={onBuy} style={{ background: lime, color: "#0F1513", border: "none", padding: "14px 32px", borderRadius: 999, fontWeight: 800, fontSize: 15, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
           Course Access Kare — ₹{COURSE_PRICE} <ArrowRight size={16} />
         </button>
+      </section>
+
+      <section style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px 72px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+        {[
+          { icon: Target, title: "Daily Goal Link", desc: "Har din naya session/link, seedha aapke dashboard mein." },
+          { icon: TrendingUp, title: "Track Progress", desc: "Weekly aur monthly progress ek nazar mein." },
+          { icon: Users, title: "Referral Wallet", desc: `Apna code share karo, referral se ₹${REFERRAL_BONUS} har purchase par.` },
+        ].map((f, i) => (
+          <div key={i} style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24 }}>
+            <f.icon color={lime} size={22} style={{ marginBottom: 12 }} />
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>{f.title}</div>
+            <div style={{ color: muted, fontSize: 13.5, lineHeight: 1.5 }}>{f.desc}</div>
+          </div>
+        ))}
       </section>
     </div>
   );
@@ -612,21 +709,26 @@ function FieldInput({ label, value, onChange, muted, cardBorder, optional, type 
   );
 }
 
-function Dashboard({ user, earnings, dailyLink, lime, amber, muted, card, cardBorder, showToast }) {
+/* ---- DASHBOARD UI ---- */
+function Dashboard({ user, earnings, dailyLink, lime, amber, muted, card, cardBorder }) {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
         <div style={{ color: muted, fontSize: 13 }}>Logged in successfully,</div>
         <div style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 26 }}>{user.name}</div>
       </div>
+      
       <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center", background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28, marginBottom: 20 }}>
-        <GoalRing value={earnings.today} max={Math.max(earnings.monthly, 1)} color={lime} label={`₹${earnings.total}`} sub="Total Reseller Cash" />
+        {/* Main Ring Ab Sirf Client Earnings Dikhayega */}
+        <GoalRing value={earnings.today} max={Math.max(earnings.monthly, 1)} color={lime} label={`₹${earnings.total}`} sub="Total Client Earnings" />
       </div>
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14, marginBottom: 20 }}>
-        <StatCard label="Today" value={earnings.today} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
-        <StatCard label="Weekly" value={earnings.weekly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
-        <StatCard label="Monthly" value={earnings.monthly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
+        <StatCard label="Today Client Earn" value={earnings.today} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
+        <StatCard label="Weekly Client Earn" value={earnings.weekly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
+        <StatCard label="Monthly Client Earn" value={earnings.monthly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
       </div>
+
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
           <Link2 size={16} color={lime} />
@@ -651,9 +753,11 @@ function StatCard({ label, value, muted, card, cardBorder, amber, highlight }) {
   );
 }
 
-function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpdateLink, onToggleReseller, lime, amber, muted, card, cardBorder }) {
+/* ---- ADMIN PANEL ---- */
+function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpdateLink, onToggleReseller, onAddClientPayment, lime, amber, muted, card, cardBorder }) {
   const [urlInput, setUrlInput] = useState(dailyLink.url || "");
   const [labelInput, setLabelInput] = useState(dailyLink.label || "");
+  const [paymentAmount, setPaymentAmount] = useState({});
 
   if (!unlocked) {
     return (
@@ -674,24 +778,44 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpd
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
       <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Craftskill Management Console</h2>
+      
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20, marginBottom: 20 }}>
         <div style={{ fontWeight: 700, marginBottom: 12 }}>Update Dynamic Daily Link</div>
         <FieldInput label="Link URL" value={urlInput} onChange={setUrlInput} muted={muted} cardBorder={cardBorder} />
         <FieldInput label="Label / Text" value={labelInput} onChange={setLabelInput} muted={muted} cardBorder={cardBorder} optional />
         <button onClick={() => onUpdateLink(urlInput, labelInput)} style={{ background: lime, color: "#0F1513", border: "none", padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>Push Broadcast Link</button>
       </div>
+
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
         <div style={{ fontWeight: 700, marginBottom: 12 }}>Registered Active Learners ({normalizedUsers.length})</div>
         {normalizedUsers.map((u) => (
-          <div key={u.phone} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${cardBorder}` }}>
+          <div key={u.phone} style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${cardBorder}`, gap: 10 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600 }}>{u.name} <span style={{ color: muted, fontWeight: 400, fontSize: 12 }}>· {u.phone}</span></div>
-              <div style={{ fontSize: 11.5, color: muted }}>Email: {u.email || "N/A"} · Code: {u.referralCode} · Score: {u.seoScore || 10} VPS</div>
+              <div style={{ fontSize: 11.5, color: muted }}>Code: {u.referralCode} · Works: {(u.portfolio||[]).length}</div>
             </div>
-            <button onClick={() => onToggleReseller(u.phone, u.isReseller)}
-              style={{ background: u.isReseller ? amber : "transparent", color: u.isReseller ? "#0F1513" : muted, border: `1px solid ${u.isReseller ? amber : cardBorder}`, borderRadius: 999, padding: "5px 12px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
-              {u.isReseller ? "Reseller Active ✓" : "Promote to Reseller"}
-            </button>
+            
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {/* Fake Client Payment Bhejne Ka Option Taki Test Kar Sako */}
+              <div style={{ display: "flex", alignItems: "center", background: "#0F1513", borderRadius: 6, border: `1px solid ${cardBorder}` }}>
+                <input 
+                  type="number" 
+                  placeholder="₹ Amount" 
+                  value={paymentAmount[u.phone] || ""} 
+                  onChange={(e) => setPaymentAmount({...paymentAmount, [u.phone]: e.target.value})}
+                  style={{ width: 80, background: "transparent", border: "none", color: "#F2F5F0", fontSize: 12, padding: "6px 8px", outline: "none" }} 
+                />
+                <button onClick={() => { onAddClientPayment(u.phone, paymentAmount[u.phone]); setPaymentAmount({...paymentAmount, [u.phone]: ""}); }} 
+                  style={{ background: lime, color: "#0F1513", border: "none", padding: "6px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", borderRadius: "0 5px 5px 0" }}>
+                  <DollarSign size={12} />
+                </button>
+              </div>
+
+              <button onClick={() => onToggleReseller(u.phone, u.isReseller)}
+                style={{ background: u.isReseller ? amber : "transparent", color: u.isReseller ? "#0F1513" : muted, border: `1px solid ${u.isReseller ? amber : cardBorder}`, borderRadius: 999, padding: "6px 12px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
+                {u.isReseller ? "Reseller ✓" : "Make Reseller"}
+              </button>
+            </div>
           </div>
         ))}
       </div>
