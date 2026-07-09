@@ -75,32 +75,35 @@ export default function App() {
         const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
 
         if (pending && pending.order_id === returnOrderId) {
-          if (returnStatus === "success") {
-            try {
-              const statusRes = await fetch("/api/zapupi-order-status", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ order_id: returnOrderId }),
-              });
-              const statusData = await statusRes.json();
+          // ZapUPI's redirect status can fire before their system fully
+          // confirms the payment, so we always double-check the real
+          // status via the API instead of trusting returnStatus alone.
+          try {
+            const statusRes = await fetch("/api/zapupi-order-status", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ order_id: returnOrderId }),
+            });
+            const statusData = await statusRes.json();
 
-              if (statusData.verified) {
-                await finalizePurchase(pending.name, pending.phone, pending.refCode);
-                localStorage.removeItem("cashcraft_pending_order");
-                setView("dashboard");
-                setLoading(false);
-                return;
-              } else {
-                showToast("Payment abhi confirm nahi hua, thodi der baad check karein");
-              }
-            } catch (err) {
-              showToast("Payment verify karne mein dikkat hui");
+            if (statusData.verified) {
+              await finalizePurchase(pending.name, pending.phone, pending.refCode);
+              localStorage.removeItem("cashcraft_pending_order");
+              setView("dashboard");
+              setLoading(false);
+              return;
+            } else if (statusData.status === "Failed") {
+              showToast("Payment fail ho gaya");
+              localStorage.removeItem("cashcraft_pending_order");
+            } else {
+              // Still pending on ZapUPI's side — keep the pending info
+              // so the "Maine Payment Kar Diya" button can recheck later.
+              showToast("Payment abhi confirm nahi hua, thodi der baad dobara check karein");
             }
-          } else {
-            showToast("Payment complete nahi hua");
+          } catch (err) {
+            showToast("Payment verify karne mein dikkat hui, dobara check karein");
           }
         }
-        localStorage.removeItem("cashcraft_pending_order");
       }
 
       const savedPhone = localStorage.getItem("cashcraft_session");
@@ -444,121 +447,4 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
 function FieldInput({ label, value, onChange, muted, cardBorder, optional }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <label style={{ fontSize: 12, color: muted, display: "block", marginBottom: 6 }}>{label}{optional && " (optional)"}</label>
-      <input value={value} onChange={(e) => onChange(e.target.value)}
-        style={{ width: "100%", background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "11px 12px", color: "#F2F5F0", fontSize: 14, outline: "none" }} />
-    </div>
-  );
-}
-
-function Dashboard({ user, earnings, dailyLink, lime, amber, muted, card, cardBorder, showToast }) {
-  const shareUrl = `https://yourdomain.com/buy?ref=${user.referralCode}`;
-  return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ color: muted, fontSize: 13 }}>Welcome back,</div>
-        <div style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 26 }}>{user.name}</div>
-        {user.isReseller && (
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#2A2418", color: amber, padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 700, marginTop: 8 }}>
-            <ShieldCheck size={12} /> RESELLER
-          </div>
-        )}
-      </div>
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center", background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28, marginBottom: 20 }}>
-        <GoalRing value={earnings.today} max={Math.max(earnings.monthly, 1)} color={lime} label={`₹${earnings.total}`} sub="Pending" />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14, marginBottom: 20 }}>
-        <StatCard label="Today's Earning" value={earnings.today} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
-        <StatCard label="Weekly Earning" value={earnings.weekly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
-        <StatCard label="Monthly Earning" value={earnings.monthly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
-        <StatCard label="Total Earning" value={earnings.total} muted={muted} card={card} cardBorder={cardBorder} amber={amber} highlight />
-      </div>
-      <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20, marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <Link2 size={16} color={lime} />
-          <span style={{ fontWeight: 700, fontSize: 14 }}>Aaj Ka Course Link</span>
-        </div>
-        {dailyLink.url ? (
-          <a href={dailyLink.url} target="_blank" rel="noreferrer" style={{ color: lime, fontSize: 13.5, wordBreak: "break-all" }}>{dailyLink.label || dailyLink.url}</a>
-        ) : (
-          <div style={{ color: muted, fontSize: 13.5 }}>{dailyLink.label}</div>
-        )}
-      </div>
-      <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <Share2 size={16} color={amber} />
-          <span style={{ fontWeight: 700, fontSize: 14 }}>Apna Referral Code Share Karo</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
-          <span style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 16, color: amber, flex: 1 }}>{user.referralCode}</span>
-          <button onClick={() => { navigator.clipboard?.writeText(user.referralCode); showToast("Code copy ho gaya"); }}
-            style={{ background: "transparent", border: `1px solid ${cardBorder}`, color: muted, borderRadius: 8, padding: 6, cursor: "pointer" }}>
-            <Copy size={14} />
-          </button>
-        </div>
-        <div style={{ fontSize: 11.5, color: muted, wordBreak: "break-all" }}>{shareUrl}</div>
-        <p style={{ fontSize: 11.5, color: muted, marginTop: 10 }}>Koi is code se course kharide to aapko ₹{REFERRAL_BONUS} credit hoga.</p>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, muted, card, cardBorder, amber, highlight }) {
-  return (
-    <div style={{ background: card, border: `1px solid ${highlight ? amber : cardBorder}`, borderRadius: 14, padding: "16px 14px" }}>
-      <div style={{ fontSize: 11, color: muted, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 20, color: highlight ? amber : "#F2F5F0" }}>₹{value}</div>
-    </div>
-  );
-}
-
-function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpdateLink, onToggleReseller, lime, amber, muted, card, cardBorder }) {
-  const [urlInput, setUrlInput] = useState(dailyLink.url);
-  const [labelInput, setLabelInput] = useState(dailyLink.label);
-
-  if (!unlocked) {
-    return (
-      <div style={{ maxWidth: 360, margin: "0 auto", padding: "72px 24px" }}>
-        <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, textAlign: "center" }}>
-          <Lock color={lime} size={22} style={{ marginBottom: 12 }} />
-          <div style={{ fontWeight: 700, marginBottom: 12 }}>Admin Access</div>
-          <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Passcode"
-            style={{ width: "100%", background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "10px 12px", color: "#F2F5F0", marginBottom: 12 }} />
-          <button onClick={onUnlock} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "10px", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>
-            Unlock
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
-      <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Admin Panel</h2>
-      <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20, marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, marginBottom: 12 }}>Daily Course Link Update Karein</div>
-        <FieldInput label="Link URL" value={urlInput} onChange={setUrlInput} muted={muted} cardBorder={cardBorder} />
-        <FieldInput label="Label / Description" value={labelInput} onChange={setLabelInput} muted={muted} cardBorder={cardBorder} optional />
-        <button onClick={() => onUpdateLink(urlInput, labelInput)} style={{ background: lime, color: "#0F1513", border: "none", padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>
-          Update Link
-        </button>
-      </div>
-      <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
-        <div style={{ fontWeight: 700, marginBottom: 12 }}>Users ({users.length})</div>
-        {users.length === 0 && <div style={{ color: muted, fontSize: 13 }}>Abhi koi user nahi hai.</div>}
-        {users.map((u) => (
-          <div key={u.phone} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${cardBorder}` }}>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 600 }}>{u.name} <span style={{ color: muted, fontWeight: 400, fontSize: 12 }}>· {u.phone}</span></div>
-              <div style={{ fontSize: 11.5, color: muted }}>Code: {u.referralCode} {u.referredBy && `· Ref by: ${u.referredBy}`}</div>
-            </div>
-            <button onClick={() => onToggleReseller(u.phone, u.isReseller)}
-              style={{ background: u.isReseller ? amber : "transparent", color: u.isReseller ? "#0F1513" : muted, border: `1px solid ${u.isReseller ? amber : cardBorder}`, borderRadius: 999, padding: "5px 12px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>
-              {u.isReseller ? "Reseller ✓" : "Make Reseller"}
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+      <label style={{ fontSize: 12, color: muted, display: "block", marginBottom: 6 }}>{labe
