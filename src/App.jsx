@@ -421,16 +421,22 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
 }
 
 function LoginFlow({ onLogin, lime, amber, muted, card, cardBorder }) {
-  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState('');
+const [password, setPassword] = useState('');
+  
   return (
     <div style={{ maxWidth: 440, margin: "0 auto", padding: "56px 24px" }}>
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28 }}>
         <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 8 }}>Wapas Login Karein</h2>
         <p style={{ color: muted, fontSize: 13.5, marginBottom: 20 }}>Wahi phone number daalein jisse course kharida tha.</p>
-        <FieldInput label="Phone Number" value={phone} onChange={setPhone} muted={muted} cardBorder={cardBorder} />
-        <button onClick={() => onLogin(phone)} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, marginTop: 10, cursor: "pointer" }}>
-          Dashboard Kholein
-        </button>
+        <FieldInput label="Gmail ID" value={email} onChange={(v) => setEmail(v)} muted={muted} cardBorder={cardBorder} />
+<FieldInput label="Password" type="password" value={password} onChange={(v) => setPassword(v)} muted={muted} cardBorder={cardBorder} />
+
+   <button onClick={() => onLogin(email, password)} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 10, fontWeight: "bold", marginTop: 10, cursor: "pointer" }}>
+  Dashboard Kholein
+</button>
+     
+
       </div>
     </div>
   );
@@ -455,6 +461,9 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
             )}
             <FieldInput label="Naam" value={buyForm.name} onChange={(v) => setBuyForm({ ...buyForm, name: v })} muted={muted} cardBorder={cardBorder} />
             <FieldInput label="Phone Number" value={buyForm.phone} onChange={(v) => setBuyForm({ ...buyForm, phone: v })} muted={muted} cardBorder={cardBorder} />
+            <FieldInput label="Gmail ID" value={buyForm.email || ''} onChange={(v) => setBuyForm({ ...buyForm, email: v })} muted={muted} cardBorder={cardBorder} />
+<FieldInput label="Password" type="password" value={buyForm.password || ''} onChange={(v) => setBuyForm({ ...buyForm, password: v })} muted={muted} cardBorder={cardBorder} />
+            
             <FieldInput label="Referral Code (agar hai to)" value={buyForm.refCode} onChange={(v) => setBuyForm({ ...buyForm, refCode: v })} muted={muted} cardBorder={cardBorder} optional />
             <button onClick={onPay} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, marginTop: 10, cursor: "pointer" }}>
               Pay ₹{COURSE_PRICE}
