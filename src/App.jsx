@@ -394,7 +394,7 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
           <Flame size={14} /> Goal-based fitness system
         </div>
         <h1 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: "clamp(32px, 6vw, 56px)", lineHeight: 1.05, marginBottom: 20 }}>
-          Apna <span style={{ color: lime }}>Goal Scale</span> hit karo.<br />Ek daily plan, poora saal.
+          Apna <span style={{ color: lime }}>Goal Scale</span> hit karo.<br />By craftskill learn skill, with your own.
         </h1>
         <p style={{ color: muted, fontSize: 16, maxWidth: 520, margin: "0 auto 32px" }}>
           Har din ek naya practical step. Structured plan, koi confusion nahi.
