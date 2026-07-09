@@ -9,7 +9,7 @@ import {
 
 const COURSE_PRICE = 199;
 const REFERRAL_BONUS = 99;
-const ADMIN_PASSCODE = "@sk804936"; // isko badal dein deploy karne se pehle
+const ADMIN_PASSCODE = "goal2026"; // isko badal dein deploy karne se pehle
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -19,17 +19,6 @@ const genRefCode = (name) =>
 
 function daysAgo(dateStr) {
   return Math.floor((new Date() - new Date(dateStr)) / (1000 * 60 * 60 * 24));
-}
-
-function loadRazorpayScript() {
-  return new Promise((resolve) => {
-    if (window.Razorpay) return resolve(true);
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
 }
 
 function GoalRing({ value, max, size = 108, stroke = 10, color = "#B4FF39", label, sub }) {
@@ -72,6 +61,48 @@ export default function App() {
     (async () => {
       const dl = await getDailyLink();
       setDailyLinkState(dl);
+
+      // Check if we're returning from a ZapUPI payment redirect
+      const params = new URLSearchParams(window.location.search);
+      const returnOrderId = params.get("order_id");
+      const returnStatus = params.get("status");
+
+      if (returnOrderId) {
+        // Clean the URL so refreshing doesn't re-trigger this
+        window.history.replaceState({}, "", window.location.pathname);
+
+        const pendingRaw = localStorage.getItem("cashcraft_pending_order");
+        const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
+
+        if (pending && pending.order_id === returnOrderId) {
+          if (returnStatus === "success") {
+            try {
+              const statusRes = await fetch("/api/zapupi-order-status", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ order_id: returnOrderId }),
+              });
+              const statusData = await statusRes.json();
+
+              if (statusData.verified) {
+                await finalizePurchase(pending.name, pending.phone, pending.refCode);
+                localStorage.removeItem("cashcraft_pending_order");
+                setView("dashboard");
+                setLoading(false);
+                return;
+              } else {
+                showToast("Payment abhi confirm nahi hua, thodi der baad check karein");
+              }
+            } catch (err) {
+              showToast("Payment verify karne mein dikkat hui");
+            }
+          } else {
+            showToast("Payment complete nahi hua");
+          }
+        }
+        localStorage.removeItem("cashcraft_pending_order");
+      }
+
       const savedPhone = localStorage.getItem("cashcraft_session");
       if (savedPhone) {
         const u = await getUser(savedPhone);
@@ -100,51 +131,37 @@ export default function App() {
     }
     setBuyStep("paying");
 
-    const scriptLoaded = await loadRazorpayScript();
-    if (!scriptLoaded) {
-      showToast("Payment load nahi hua, dobara try karein");
-      setBuyStep("form");
-      return;
-    }
-
     try {
-      const orderRes = await fetch("/api/create-order", { method: "POST" });
+      const orderRes = await fetch("/api/zapupi-create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: COURSE_PRICE,
+          customer_mobile: phone.trim(),
+          remark: `CashCraft | ${name.trim()}`,
+        }),
+      });
       const order = await orderRes.json();
 
-      const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
-        amount: order.amount,
-        currency: order.currency,
-        name: "CashCraft",
-        description: "Goal Scale Course",
-        order_id: order.id,
-        prefill: { name: name.trim(), contact: phone.trim() },
-        theme: { color: "#B4FF39" },
-        handler: async function (response) {
-          const verifyRes = await fetch("/api/verify-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(response),
-          });
-          const verifyData = await verifyRes.json();
+      if (!order.payment_url) {
+        showToast("Payment start nahi ho paya, dobara try karein");
+        setBuyStep("form");
+        return;
+      }
 
-          if (verifyData.verified) {
-            await finalizePurchase(name.trim(), phone.trim(), refCode.trim());
-            setBuyStep("done");
-          } else {
-            showToast("Payment verify nahi hua");
-            setBuyStep("form");
-          }
-        },
-        modal: {
-          ondismiss: function () {
-            setBuyStep("form");
-          },
-        },
-      };
+      // Save pending purchase info so we can finish it when the user
+      // is redirected back from ZapUPI's payment page.
+      localStorage.setItem(
+        "cashcraft_pending_order",
+        JSON.stringify({
+          order_id: order.order_id,
+          name: name.trim(),
+          phone: phone.trim(),
+          refCode: refCode.trim(),
+        })
+      );
 
-      const rzp = new window.Razorpay(options);
-      rzp.open();
+      window.location.href = order.payment_url;
     } catch (err) {
       showToast("Kuch galat hua, dobara try karein");
       setBuyStep("form");
@@ -322,7 +339,7 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
           Har din ek naya practical step. Structured plan, koi confusion nahi.
         </p>
         <button onClick={onBuy} style={{ background: lime, color: "#0F1513", border: "none", padding: "14px 32px", borderRadius: 999, fontWeight: 800, fontSize: 15, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-          Course Shuru Kare — ₹{COURSE_PRICE} <ArrowRight size={16} />
+          Course Shuru Karein — ₹{COURSE_PRICE} <ArrowRight size={16} />
         </button>
       </section>
       <section style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px 72px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
@@ -361,7 +378,7 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, lime, amber, mut
           <div style={{ textAlign: "center", padding: "24px 0" }}>
             <div style={{ width: 40, height: 40, border: `3px solid ${cardBorder}`, borderTopColor: lime, borderRadius: "50%", margin: "0 auto 16px", animation: "spin 0.8s linear infinite" }} />
             <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            <div style={{ color: muted, fontSize: 14 }}>Razorpay khul raha hai...</div>
+            <div style={{ color: muted, fontSize: 14 }}>Payment page par le ja rahe hain...</div>
           </div>
         )}
         {buyStep === "done" && (
