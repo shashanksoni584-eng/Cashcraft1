@@ -44,7 +44,6 @@ function GoalRing({ value, max, size = 108, stroke = 10, color = "#B4FF39", labe
   );
 }
 
-// Naya function jo earnings ko separate karta hai (client ya referral)
 function getEarnings(user, category) {
   if (!user) return { today: 0, weekly: 0, monthly: 0, total: 0 };
   const tx = (user.transactions || []).filter(t => t.category === category || (!t.category && category === "referral"));
@@ -57,14 +56,14 @@ function getEarnings(user, category) {
 }
 
 export default function App() {
-  const [dailyLink, setDailyLinkState] = useState({ url: "", label: "" });
+  const [dailyLink, setDailyLinkState] = useState({ url: "", label: "", videoUrl: "", thumbnailUrl: "", scriptUrl: "" });
   const [currentPhone, setCurrentPhone] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("landing");
   const [dashSubView, setDashSubView] = useState("dashboard"); 
-  const [buyForm, setBuyForm] = useState({ name: '', phone: '', email: '', password: '', refCode: '' });
+  const [buyForm, setBuyForm] = useState({ name: '', phone: '', email: '', password: '', refCode: '', selectedSkill: 'video_editing' });
   const [buyStep, setBuyStep] = useState("form");
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [adminPass, setAdminPass] = useState("");
@@ -74,7 +73,15 @@ export default function App() {
   useEffect(() => {
     (async () => {
       const dl = await getDailyLink();
-      setDailyLinkState(dl);
+      if (dl) {
+        setDailyLinkState({
+          url: dl.url || "",
+          label: dl.label || "",
+          videoUrl: dl.videoUrl || "",
+          thumbnailUrl: dl.thumbnailUrl || "",
+          scriptUrl: dl.scriptUrl || ""
+        });
+      }
 
       const params = new URLSearchParams(window.location.search);
       const returnOrderId = params.get("order_id");
@@ -94,7 +101,7 @@ export default function App() {
             const statusData = await statusRes.json();
 
             if (statusData.verified) {
-              await finalizePurchase(pending.name, pending.phone, pending.refCode, pending.email, pending.password);
+              await finalizePurchase(pending.name, pending.phone, pending.refCode, pending.email, pending.password, pending.selectedSkill);
               localStorage.removeItem("craftskill_pending_order");
               setView("dashboard");
               setDashSubView("dashboard");
@@ -129,7 +136,7 @@ export default function App() {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   async function handlePurchase() {
-    const { name, phone, refCode, email, password } = buyForm;
+    const { name, phone, refCode, email, password, selectedSkill } = buyForm;
     if (!name.trim() || phone.trim().length < 8 || !email.trim() || !password.trim()) {
       showToast("Saari details sahi se bharein!");
       return;
@@ -162,7 +169,8 @@ export default function App() {
           phone: phone.trim(),
           refCode: refCode.trim(),
           email: email.trim(),
-          password: password.trim()
+          password: password.trim(),
+          selectedSkill: selectedSkill || "video_editing"
         })
       );
 
@@ -173,7 +181,7 @@ export default function App() {
     }
   }
 
-  async function finalizePurchase(name, phone, refCode, email, password) {
+  async function finalizePurchase(name, phone, refCode, email, password, selectedSkill) {
     const existing = await getUser(phone);
     const referrer = refCode ? await findByReferralCode(refCode) : null;
 
@@ -189,12 +197,14 @@ export default function App() {
       transactions: [],
       profilePic: "", 
       portfolio: [],
+      selectedSkill: selectedSkill || "video_editing"
     };
     userData.purchased = true;
     userData.purchaseDate = todayStr();
     
     if(email) userData.email = email;
     if(password) userData.password = password;
+    if(selectedSkill) userData.selectedSkill = selectedSkill;
 
     await setUser(phone, userData);
 
@@ -203,7 +213,6 @@ export default function App() {
         ...referrer,
         transactions: [
           ...(referrer.transactions || []),
-          // Referral bonus ki category set kar di gayi hai
           { id: uid(), date: todayStr(), amount: REFERRAL_BONUS, type: "credit", category: "referral", source: `Referral: ${name} registered` },
         ],
       };
@@ -232,7 +241,7 @@ export default function App() {
       const statusData = await statusRes.json();
 
       if (statusData.verified) {
-        await finalizePurchase(pending.name, pending.phone, pending.refCode, pending.email, pending.password);
+        await finalizePurchase(pending.name, pending.phone, pending.refCode, pending.email, pending.password, pending.selectedSkill);
         localStorage.removeItem("craftskill_pending_order");
         setBuyStep("done");
       } else {
@@ -319,7 +328,7 @@ export default function App() {
     setView("dashboard");
     setDashSubView("dashboard");
     setBuyStep("form");
-    setBuyForm({ name: "", phone: "", email: "", password: "", refCode: "" });
+    setBuyForm({ name: "", phone: "", email: "", password: "", refCode: "", selectedSkill: "video_editing" });
   }
 
   async function toggleReseller(phone, current) {
@@ -328,7 +337,6 @@ export default function App() {
     setAllUsers(users);
   }
   
-  // Admin function to simulate client payments
   async function addClientPayment(targetPhone, amountStr) {
     const amount = Number(amountStr);
     if (!amount) return;
@@ -352,11 +360,10 @@ export default function App() {
     setAllUsers(users);
   }
 
-  async function updateDailyLink(url, label) {
-    const data = { url, label };
-    setDailyLinkState(data);
-    await setDailyLink(data);
-    showToast("Daily link update ho gaya");
+  async function updateDailyLink(newLinksObject) {
+    setDailyLinkState(newLinksObject);
+    await setDailyLink(newLinksObject);
+    showToast("Batch Workspace links update ho gaye!");
   }
 
   const fontLink = (
@@ -364,8 +371,6 @@ export default function App() {
       @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&display=swap');
       * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
       body { background: #0F1513; overflow-x: hidden; }
-      
-      /* Hide scrollbar for grid */
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     `}</style>
@@ -386,7 +391,6 @@ export default function App() {
   const bg = "#0F1513", card = "#161F1C", cardBorder = "#243029";
   const lime = "#B4FF39", amber = "#FFB238", muted = "#8A9A94", text = "#F2F5F0";
 
-  // Naya earnings calculation (Client aur Referral alag-alag)
   const clientEarnings = getEarnings(currentUser, "client");
   const referralEarnings = getEarnings(currentUser, "referral");
 
@@ -430,7 +434,7 @@ export default function App() {
             <>
               <button onClick={() => { setDashSubView("account"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "account", lime, card)}><User size={16}/> Account & Profile</button>
               <button onClick={() => { setDashSubView("dashboard"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "dashboard", lime, card)}><Target size={16}/> Dashboard</button>
-              <button onClick={() => { setDashSubView("clientChat"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "clientChat", lime, card)}><MessageSquare size={16}/> Client Chat</button>
+              <button onClick={() => { setDashSubView("clientChat"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "clientChat", lime, card)}><MessageSquare size={16}/> Client Chat / Links</button>
               <button onClick={() => { setDashSubView("referral"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "referral", lime, card)}><Users size={16}/> Referral System</button>
               <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} style={{ ...sideMenuBtnStyle(false, lime, card), color: "#FF6B6B", marginTop: 'auto' }}>Logout</button>
             </>
@@ -471,7 +475,7 @@ export default function App() {
       {view === "login" && <LoginFlow onLogin={handleLogin} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />}
       {view === "buy" && (
         <BuyFlow buyForm={buyForm} setBuyForm={setBuyForm} buyStep={buyStep} onPay={handlePurchase} onDone={finishPurchaseFlow} onCheckPending={checkPendingPayment}
-          lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />
+          lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} bg={bg} />
       )}
 
       {view === "dashboard" && currentUser && (
@@ -493,9 +497,9 @@ export default function App() {
                   <div style={{ flex: 1 }}>
                     <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 20, marginBottom: 4 }}>{currentUser.name}</h2>
                     <div style={{ fontSize: 13, color: muted, marginBottom: 2 }}>📧 {currentUser.email || "Email not set"}</div>
-                    <div style={{ fontSize: 13, color: muted, marginBottom: 12 }}>📞 {currentUser.phone}</div>
+                    <div style={{ fontSize: 13, color: muted, marginBottom: 4 }}>📞 {currentUser.phone}</div>
                     <div style={{ display: "inline-block", fontSize: 11, background: "#0F1513", border: `1px solid ${amber}`, color: amber, padding: "4px 10px", borderRadius: 999, fontWeight: 700 }}>
-                      Creative Editor & Designer
+                      Course: {currentUser.selectedSkill === "thumbnail_designing" ? "🎨 Thumbnail Design" : currentUser.selectedSkill === "script_writing" ? "✍️ Script Writing" : "🎬 Video Editing"}
                     </div>
                   </div>
                 </div>
@@ -539,25 +543,64 @@ export default function App() {
             </div>
           )}
 
-          {/* ---- MAIN DASHBOARD (ONLY CLIENT EARNINGS) ---- */}
+          {/* ---- MAIN DASHBOARD ---- */}
           {dashSubView === "dashboard" && (
             <Dashboard user={currentUser} earnings={clientEarnings} dailyLink={dailyLink} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} showToast={showToast} />
           )}
 
+          {/* ---- SKILL LINK & CLIENT DASHBOARD ---- */}
           {dashSubView === "clientChat" && (
             <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 40, textAlign: "center" }}>
-              <MessageSquare size={36} color={amber} style={{ marginBottom: 14 }} />
-              <h3 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 8 }}>Client Interaction Website</h3>
-              <div style={{ display: "inline-block", background: "#2A2010", color: amber, fontSize: 12, padding: "4px 14px", borderRadius: 999, fontWeight: 700, marginBottom: 16 }}>STATUS: PENDING & DEVELOPMENT</div>
-              <p style={{ color: muted, fontSize: 13.5, maxWidth: 440, margin: "0 auto", lineHeight: 1.6 }}>Hum ek dedicated sub-platform ready kar rahe hain jahan direct international and local clients aakar editors se deal kar sakenge. Yeh functional hote hi aapki Client Earnings dashboard me update hone lagengi.</p>
+              <div style={{ display: "inline-flex", padding: 12, background: "#1C2924", borderRadius: "50%", marginBottom: 16 }}>
+                <Video color={lime} size={28} />
+              </div>
+              <h3 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 8 }}>Aapka Batch Live Workspace Link</h3>
+              
+              <p style={{ color: muted, fontSize: 13.5, maxWidth: 460, margin: "0 auto 24px", lineHeight: 1.6 }}>
+                Aapne active skill registration <span style={{ color: amber, fontWeight: 700 }}>
+                  {currentUser.selectedSkill === "thumbnail_designing" ? "Thumbnail Designing" : 
+                   currentUser.selectedSkill === "script_writing" ? "Script Writing" : "Video Editing"}
+                </span> chuni hai. Niche diye link se direct class dashboard join karein:
+              </p>
+
+              <a 
+                href={
+                  currentUser.selectedSkill === "thumbnail_designing" ? dailyLink.thumbnailUrl :
+                  currentUser.selectedSkill === "script_writing" ? dailyLink.scriptUrl :
+                  dailyLink.videoUrl || dailyLink.url
+                } 
+                target="_blank" 
+                rel="noreferrer"
+                style={{ 
+                  display: "inline-flex", 
+                  alignItems: "center",
+                  gap: 8,
+                  background: lime, 
+                  color: "#0F1513", 
+                  padding: "12px 28px", 
+                  borderRadius: 999, 
+                  fontWeight: 800, 
+                  textDecoration: "none",
+                  boxShadow: `0 4px 15px ${lime}33`
+                }}
+              >
+                Join Live Classroom <ArrowRight size={16} />
+              </a>
+
+              <hr style={{ border: "none", borderTop: `1px solid ${cardBorder}`, margin: "32px 0" }} />
+              
+              <MessageSquare size={24} color={amber} style={{ marginBottom: 10 }} />
+              <div style={{ display: "inline-block", background: "#2A2010", color: amber, fontSize: 11, padding: "4px 12px", borderRadius: 999, fontWeight: 700, marginBottom: 10 }}>CLIENT CONNECT STATUS: IN DEVELOPMENT</div>
+              <p style={{ color: muted, fontSize: 12.5, maxWidth: 440, margin: "0 auto" }}>
+                Hum ek dedicated sub-platform ready kar rahe hain jahan international clients aakar editors se direct deal karenge.
+              </p>
             </div>
           )}
 
-          {/* ---- REFERRAL PAGE (ONLY REFERRAL EARNINGS) ---- */}
+          {/* ---- REFERRAL PAGE ---- */}
           {dashSubView === "referral" && (
             <div>
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center", background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28, marginBottom: 20 }}>
-                {/* Referral Earnings Goal Ring */}
                 <GoalRing value={referralEarnings.today} max={Math.max(referralEarnings.monthly, 1)} color={lime} label={`₹${referralEarnings.total}`} sub="Referral Earned" />
               </div>
               <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
@@ -573,7 +616,7 @@ export default function App() {
                   </button>
                 </div>
                 <div style={{ fontSize: 11.5, color: muted, wordBreak: "break-all" }}>https://craftskill-learning.com/buy?ref={currentUser.referralCode}</div>
-                <p style={{ fontSize: 12, color: muted, marginTop: 14 }}>Har ek success purchase conversion par aapke wallet mein instant <span style={{ color: lime, fontWeight: 700 }}>₹{REFERRAL_BONUS}</span> add kiya jayega. Yeh amount sirf yahi dikhega.</p>
+                <p style={{ fontSize: 12, color: muted, marginTop: 14 }}>Har ek success purchase conversion par aapke wallet mein instant <span style={{ color: lime, fontWeight: 700 }}>₹{REFERRAL_BONUS}</span> add kiya jayega.</p>
               </div>
             </div>
           )}
@@ -585,7 +628,7 @@ export default function App() {
         <AdminPanel unlocked={adminUnlocked} pass={adminPass} setPass={setAdminPass}
           onUnlock={() => { if (adminPass === ADMIN_PASSCODE) { setAdminUnlocked(true); loadAdminUsers(); } else showToast("Galat passcode"); }}
           users={allUsers} dailyLink={dailyLink} onUpdateLink={updateDailyLink} onToggleReseller={toggleReseller}
-          onAddClientPayment={addClientPayment}
+          onAddClientPayment={addClientPayment} bg={bg}
           lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />
       )}
 
@@ -622,18 +665,12 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
         Course Le Lein — ₹{COURSE_PRICE}
       </button>
 
-      {/* 3 Skill Cards Section */}
       <div style={{ marginTop: 20, textAlign: "left" }}>
         <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 24, textAlign: "center", color: "#F2F5F0" }}>
           Inme Se Apni Manpasand Skill Chunein
         </h2>
-        <div style={{ 
-          display: "grid", 
-          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", 
-          gap: "16px"
-        }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "16px" }}>
           
-          {/* Card 1: Video Editing */}
           <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "12px", overflow: "hidden" }}>
             <img src="https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=500&auto=format&fit=crop&q=60" alt="Video Editing" style={{ width: "100%", height: "140px", objectFit: "cover" }} />
             <div style={{ padding: "16px" }}>
@@ -642,7 +679,6 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
             </div>
           </div>
 
-          {/* Card 2: Thumbnail Designing */}
           <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "12px", overflow: "hidden" }}>
             <img src="https://images.unsplash.com/photo-1626785774573-4b799315345d?w=500&auto=format&fit=crop&q=60" alt="Thumbnail Design" style={{ width: "100%", height: "140px", objectFit: "cover" }} />
             <div style={{ padding: "16px" }}>
@@ -651,7 +687,6 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
             </div>
           </div>
 
-          {/* Card 3: Script Writing */}
           <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "12px", overflow: "hidden" }}>
             <img src="https://images.unsplash.com/photo-1512046011337-41a5c7275ba1?w=500&auto=format&fit=crop&q=60" alt="Script Writing" style={{ width: "100%", height: "140px", objectFit: "cover" }} />
             <div style={{ padding: "16px" }}>
@@ -666,9 +701,7 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
   );
 }
 
-
-
-
+/* ---- LOGIN FLOW ---- */
 function LoginFlow({ onLogin, lime, amber, muted, card, cardBorder }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -687,7 +720,8 @@ function LoginFlow({ onLogin, lime, amber, muted, card, cardBorder }) {
   );
 }
 
-function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, lime, amber, muted, card, cardBorder }) {
+/* ---- BUY FLOW WITH SKILL DROP+DOWN ---- */
+function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, lime, amber, muted, card, cardBorder, bg }) {
   const hasPending = typeof window !== "undefined" && localStorage.getItem("craftskill_pending_order");
   return (
     <div style={{ maxWidth: 440, margin: "0 auto", padding: "56px 24px" }}>
@@ -707,7 +741,23 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
             <FieldInput label="Active WhatsApp Phone" value={buyForm.phone} onChange={(v) => setBuyForm({ ...buyForm, phone: v })} muted={muted} cardBorder={cardBorder} />
             <FieldInput label="Gmail ID (For future Logins)" value={buyForm.email} onChange={(v) => setBuyForm({ ...buyForm, email: v })} muted={muted} cardBorder={cardBorder} />
             <FieldInput label="Set Secure Password" type="password" value={buyForm.password} onChange={(v) => setBuyForm({ ...buyForm, password: v })} muted={muted} cardBorder={cardBorder} />
+            
+            {/* Skill Selection Dropdown Added Successfully */}
+            <div style={{ marginBottom: 14, textAlign: "left" }}>
+              <label style={{ fontSize: 12, color: muted, display: "block", marginBottom: 6 }}>Apna Course Select Chunein <span style={{ color: lime }}>*</span></label>
+              <select 
+                value={buyForm.selectedSkill || "video_editing"}
+                onChange={(e) => setBuyForm({ ...buyForm, selectedSkill: e.target.value })}
+                style={{ width: "100%", background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "11px 12px", color: "#F2F5F0", fontSize: 14, outline: "none", cursor: "pointer" }}
+              >
+                <option value="video_editing">🎬 Video Editing Complete Course</option>
+                <option value="thumbnail_designing">🎨 Thumbnail Designing Course</option>
+                <option value="script_writing">✍️ Script Writing Specialist</option>
+              </select>
+            </div>
+
             <FieldInput label="Referral Code (Optional)" value={buyForm.refCode} onChange={(v) => setBuyForm({ ...buyForm, refCode: v })} muted={muted} cardBorder={cardBorder} optional />
+            
             <button onClick={onPay} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, marginTop: 10, cursor: "pointer" }}>
               Secure Pay ₹{COURSE_PRICE}
             </button>
@@ -744,6 +794,10 @@ function FieldInput({ label, value, onChange, muted, cardBorder, optional, type 
 
 /* ---- DASHBOARD UI ---- */
 function Dashboard({ user, earnings, dailyLink, lime, amber, muted, card, cardBorder }) {
+  const currentSkillLink = user.selectedSkill === "thumbnail_designing" ? dailyLink.thumbnailUrl :
+                           user.selectedSkill === "script_writing" ? dailyLink.scriptUrl :
+                           dailyLink.videoUrl || dailyLink.url;
+
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
@@ -752,7 +806,6 @@ function Dashboard({ user, earnings, dailyLink, lime, amber, muted, card, cardBo
       </div>
       
       <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center", background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28, marginBottom: 20 }}>
-        {/* Main Ring Ab Sirf Client Earnings Dikhayega */}
         <GoalRing value={earnings.today} max={Math.max(earnings.monthly, 1)} color={lime} label={`₹${earnings.total}`} sub="Total Client Earnings" />
       </div>
 
@@ -767,10 +820,12 @@ function Dashboard({ user, earnings, dailyLink, lime, amber, muted, card, cardBo
           <Link2 size={16} color={lime} />
           <span style={{ fontWeight: 700, fontSize: 14 }}>Daily Active Lesson Resource</span>
         </div>
-        {dailyLink.url ? (
-          <a href={dailyLink.url} target="_blank" rel="noreferrer" style={{ color: lime, fontSize: 13.5, wordBreak: "break-all" }}>{dailyLink.label || dailyLink.url}</a>
+        {currentSkillLink ? (
+          <a href={currentSkillLink} target="_blank" rel="noreferrer" style={{ color: lime, fontSize: 13.5, wordBreak: "break-all" }}>
+            {dailyLink.label || "Click here to open your batch classroom link"}
+          </a>
         ) : (
-          <div style={{ color: muted, fontSize: 13.5 }}>{dailyLink.label || "No stream mapping update for today."}</div>
+          <div style={{ color: muted, fontSize: 13.5 }}>No stream mapping update for today. Check 'Client Chat / Links' menu.</div>
         )}
       </div>
     </div>
@@ -786,9 +841,11 @@ function StatCard({ label, value, muted, card, cardBorder, amber, highlight }) {
   );
 }
 
-/* ---- ADMIN PANEL ---- */
-function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpdateLink, onToggleReseller, onAddClientPayment, lime, amber, muted, card, cardBorder }) {
-  const [urlInput, setUrlInput] = useState(dailyLink.url || "");
+/* ---- ADMIN PANEL MANAGING THREE SKILL LINKS ---- */
+function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpdateLink, onToggleReseller, onAddClientPayment, lime, amber, muted, card, cardBorder, bg }) {
+  const [videoLinkInput, setVideoLinkInput] = useState(dailyLink.videoUrl || "");
+  const [thumbLinkInput, setThumbLinkInput] = useState(dailyLink.thumbnailUrl || "");
+  const [scriptLinkInput, setScriptLinkInput] = useState(dailyLink.scriptUrl || "");
   const [labelInput, setLabelInput] = useState(dailyLink.label || "");
   const [paymentAmount, setPaymentAmount] = useState({});
 
@@ -812,11 +869,27 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpd
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
       <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Craftskill Management Console</h2>
       
+      {/* Three Separated Custom Admin Links Added Successfully */}
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20, marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, marginBottom: 12 }}>Update Dynamic Daily Link</div>
-        <FieldInput label="Link URL" value={urlInput} onChange={setUrlInput} muted={muted} cardBorder={cardBorder} />
-        <FieldInput label="Label / Text" value={labelInput} onChange={setLabelInput} muted={muted} cardBorder={cardBorder} optional />
-        <button onClick={() => onUpdateLink(urlInput, labelInput)} style={{ background: lime, color: "#0F1513", border: "none", padding: "10px 20px", borderRadius: 10, fontWeight: 700, cursor: "pointer" }}>Push Broadcast Link</button>
+        <div style={{ fontWeight: 700, marginBottom: 16, color: lime }}>🌐 Dynamic Separate Batch Links Configuration</div>
+        
+        <FieldInput label="🎬 Video Editing Class Link" value={videoLinkInput} onChange={setVideoLinkInput} muted={muted} cardBorder={cardBorder} />
+        <FieldInput label="🎨 Thumbnail Designing Class Link" value={thumbLinkInput} onChange={setThumbLinkInput} muted={muted} cardBorder={cardBorder} />
+        <FieldInput label="✍️ Script Writing Class Link" value={scriptLinkInput} onChange={setScriptLinkInput} muted={muted} cardBorder={cardBorder} />
+        <FieldInput label="Text Display Label (Optional)" value={labelInput} onChange={setLabelInput} muted={muted} cardBorder={cardBorder} optional />
+        
+        <button 
+          onClick={() => onUpdateLink({
+            url: videoLinkInput, // Fallback support
+            label: labelInput,
+            videoUrl: videoLinkInput,
+            thumbnailUrl: thumbLinkInput,
+            scriptUrl: scriptLinkInput
+          })} 
+          style={{ background: lime, color: "#0F1513", border: "none", padding: "11px 22px", borderRadius: 10, fontWeight: 800, cursor: "pointer", marginTop: 6 }}
+        >
+          Push All Course Settings
+        </button>
       </div>
 
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
@@ -825,11 +898,13 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpd
           <div key={u.phone} style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${cardBorder}`, gap: 10 }}>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600 }}>{u.name} <span style={{ color: muted, fontWeight: 400, fontSize: 12 }}>· {u.phone}</span></div>
-              <div style={{ fontSize: 11.5, color: muted }}>Code: {u.referralCode} · Works: {(u.portfolio||[]).length}</div>
+              <div style={{ fontSize: 11.5, color: lime, fontWeight: 600, marginTop: 2 }}>
+                Active: {u.selectedSkill === "thumbnail_designing" ? "Thumbnail" : u.selectedSkill === "script_writing" ? "Script" : "Video Editing"}
+              </div>
+              <div style={{ fontSize: 11.5, color: muted, marginTop: 2 }}>Code: {u.referralCode} · Works: {(u.portfolio||[]).length}</div>
             </div>
             
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {/* Fake Client Payment Bhejne Ka Option Taki Test Kar Sako */}
               <div style={{ display: "flex", alignItems: "center", background: "#0F1513", borderRadius: 6, border: `1px solid ${cardBorder}` }}>
                 <input 
                   type="number" 
