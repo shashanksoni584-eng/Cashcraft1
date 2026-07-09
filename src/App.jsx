@@ -199,13 +199,13 @@ export default function App() {
       await setUser(referrer.phone, updatedReferrer);
     }
 
-    localStorage.setItem("cashcraft_session", phone);
+    localStorage.setItem("craftskill_session", phone);
     setCurrentPhone(phone);
     setCurrentUser(userData);
   }
 
   async function checkPendingPayment() {
-    const pendingRaw = localStorage.getItem("cashcraft_pending_order");
+    const pendingRaw = localStorage.getItem("craftskill_pending_order");
     if (!pendingRaw) {
       showToast("Koi pending payment nahi mila");
       return;
@@ -222,14 +222,14 @@ export default function App() {
 
       if (statusData.verified) {
         await finalizePurchase(pending.name, pending.phone, pending.refCode);
-        localStorage.removeItem("cashcraft_pending_order");
+        localStorage.removeItem("craftskill_pending_order");
         setBuyStep("done");
       } else if (statusData.status === "Pending") {
         showToast("Payment abhi bhi pending hai, thodi der baad try karein");
         setBuyStep("form");
       } else {
         showToast("Payment successful nahi hua");
-        localStorage.removeItem("cashcraft_pending_order");
+        localStorage.removeItem("craftskill_pending_order");
         setBuyStep("form");
       }
     } catch (err) {
@@ -245,7 +245,7 @@ export default function App() {
     }
     const u = await getUser(phone.trim());
     if (u && u.purchased) {
-      localStorage.setItem("cashcraft_session", phone.trim());
+      localStorage.setItem("craftskill_session", phone.trim());
       setCurrentPhone(phone.trim());
       setCurrentUser(u);
       setView("dashboard");
@@ -261,7 +261,7 @@ export default function App() {
   }
 
   function handleLogout() {
-    localStorage.removeItem("cashcraft_session");
+    localStorage.removeItem("craftskill_session");
     setCurrentPhone(null);
     setCurrentUser(null);
     setView("landing");
@@ -376,7 +376,7 @@ export default function App() {
       )}
 
       <footer style={{ textAlign: "center", padding: "28px 16px", color: muted, fontSize: 12, borderTop: `1px solid ${cardBorder}`, marginTop: 40 }}>
-        © CashCraft
+        © Craftskill
       </footer>
     </div>
   );
@@ -437,7 +437,7 @@ function LoginFlow({ onLogin, lime, amber, muted, card, cardBorder }) {
 }
 
 function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, lime, amber, muted, card, cardBorder }) {
-  const hasPending = typeof window !== "undefined" && localStorage.getItem("cashcraft_pending_order");
+  const hasPending = typeof window !== "undefined" && localStorage.getItem("craftskill_pending_order");
   return (
     <div style={{ maxWidth: 440, margin: "0 auto", padding: "56px 24px" }}>
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28 }}>
