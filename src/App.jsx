@@ -391,10 +391,10 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
     <div>
       <section style={{ maxWidth: 960, margin: "0 auto", padding: "72px 24px 48px", textAlign: "center" }}>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: card, border: `1px solid ${cardBorder}`, padding: "6px 14px", borderRadius: 999, fontSize: 12, color: amber, marginBottom: 24 }}>
-          <Flame size={14} /> Goal-based fitness system
+          <Flame size={14} /> Goal-based skill system
         </div>
         <h1 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: "clamp(32px, 6vw, 56px)", lineHeight: 1.05, marginBottom: 20 }}>
-          Apna <span style={{ color: lime }}>Goal Scale</span> hit karo.<br />By craftskill learn skill, with your own.
+          Apna <span style={{ color: lime }}>Goal Scale</span> hit karo.<br />By craftskill learn skill with your own motivation.
         </h1>
         <p style={{ color: muted, fontSize: 16, maxWidth: 520, margin: "0 auto 32px" }}>
           Har din ek naya practical step. Structured plan, koi confusion nahi.
