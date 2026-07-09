@@ -201,6 +201,40 @@ export default function App() {
     setCurrentUser(userData);
   }
 
+  async function checkPendingPayment() {
+    const pendingRaw = localStorage.getItem("cashcraft_pending_order");
+    if (!pendingRaw) {
+      showToast("Koi pending payment nahi mila");
+      return;
+    }
+    const pending = JSON.parse(pendingRaw);
+    setBuyStep("paying");
+    try {
+      const statusRes = await fetch("/api/zapupi-order-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ order_id: pending.order_id }),
+      });
+      const statusData = await statusRes.json();
+
+      if (statusData.verified) {
+        await finalizePurchase(pending.name, pending.phone, pending.refCode);
+        localStorage.removeItem("cashcraft_pending_order");
+        setBuyStep("done");
+      } else if (statusData.status === "Pending") {
+        showToast("Payment abhi bhi pending hai, thodi der baad try karein");
+        setBuyStep("form");
+      } else {
+        showToast("Payment successful nahi hua");
+        localStorage.removeItem("cashcraft_pending_order");
+        setBuyStep("form");
+      }
+    } catch (err) {
+      showToast("Status check karne mein dikkat hui");
+      setBuyStep("form");
+    }
+  }
+
   function finishPurchaseFlow() {
     setView("dashboard");
     setBuyStep("form");
@@ -299,6 +333,7 @@ export default function App() {
 
       {view === "buy" && (
         <BuyFlow buyForm={buyForm} setBuyForm={setBuyForm} buyStep={buyStep} onPay={handlePurchase} onDone={finishPurchaseFlow}
+          onCheckPending={checkPendingPayment}
           lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />
       )}
 
@@ -339,7 +374,7 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
           Har din ek naya practical step. Structured plan, koi confusion nahi.
         </p>
         <button onClick={onBuy} style={{ background: lime, color: "#0F1513", border: "none", padding: "14px 32px", borderRadius: 999, fontWeight: 800, fontSize: 15, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-          Course Shuru Karein — ₹{COURSE_PRICE} <ArrowRight size={16} />
+          Course Shuru Kare — ₹{COURSE_PRICE} <ArrowRight size={16} />
         </button>
       </section>
       <section style={{ maxWidth: 960, margin: "0 auto", padding: "0 24px 72px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
@@ -359,13 +394,23 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
   );
 }
 
-function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, lime, amber, muted, card, cardBorder }) {
+function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, lime, amber, muted, card, cardBorder }) {
+  const hasPending = typeof window !== "undefined" && localStorage.getItem("cashcraft_pending_order");
   return (
     <div style={{ maxWidth: 440, margin: "0 auto", padding: "56px 24px" }}>
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28 }}>
         {buyStep === "form" && (
           <>
             <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Course Kharido — ₹{COURSE_PRICE}</h2>
+            {hasPending && (
+              <div style={{ background: "#0F1513", border: `1px solid ${amber}`, borderRadius: 12, padding: 14, marginBottom: 18 }}>
+                <div style={{ fontSize: 13, color: amber, fontWeight: 700, marginBottom: 8 }}>Pehle se ek payment pending hai</div>
+                <div style={{ fontSize: 12.5, color: muted, marginBottom: 10 }}>Agar aapne UPI se payment kar diya hai, to yahan tap karke confirm karein.</div>
+                <button onClick={onCheckPending} style={{ width: "100%", background: amber, color: "#0F1513", border: "none", padding: "10px", borderRadius: 10, fontWeight: 800, cursor: "pointer" }}>
+                  Maine Payment Kar Diya — Check Karein
+                </button>
+              </div>
+            )}
             <FieldInput label="Naam" value={buyForm.name} onChange={(v) => setBuyForm({ ...buyForm, name: v })} muted={muted} cardBorder={cardBorder} />
             <FieldInput label="Phone Number" value={buyForm.phone} onChange={(v) => setBuyForm({ ...buyForm, phone: v })} muted={muted} cardBorder={cardBorder} />
             <FieldInput label="Referral Code (agar hai to)" value={buyForm.refCode} onChange={(v) => setBuyForm({ ...buyForm, refCode: v })} muted={muted} cardBorder={cardBorder} optional />
