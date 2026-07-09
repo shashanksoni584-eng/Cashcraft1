@@ -141,7 +141,7 @@ export default function App() {
         body: JSON.stringify({
           amount: COURSE_PRICE,
           customer_mobile: phone.trim(),
-          remark: `CashCraft | ${name.trim()}`,
+          remark: `Craftskill | ${name.trim()}`,
         }),
       });
       const order = await orderRes.json();
@@ -155,7 +155,7 @@ export default function App() {
       // Save pending purchase info so we can finish it when the user
       // is redirected back from ZapUPI's payment page.
       localStorage.setItem(
-        "cashcraft_pending_order",
+        "craftskill_pending_order",
         JSON.stringify({
           order_id: order.order_id,
           name: name.trim(),
