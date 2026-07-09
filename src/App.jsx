@@ -56,6 +56,7 @@ export default function App() {
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [adminPass, setAdminPass] = useState("");
   const [toast, setToast] = useState("");
+  const [isMenuOpen, setIsMenuOpen] = useState(false); // Mobile menu state yaheen add ho gayi hai
 
   useEffect(() => {
     (async () => {
@@ -139,7 +140,6 @@ export default function App() {
         return;
       }
 
-      // Email aur Password ko bhi pending state mein save kiya taaki redirect ke baad data loss na ho
       localStorage.setItem(
         "craftskill_pending_order",
         JSON.stringify({
@@ -177,7 +177,6 @@ export default function App() {
     userData.purchased = true;
     userData.purchaseDate = todayStr();
     
-    // Agar existing user h toh usme bhi naye credentials update ho jayein
     if(email) userData.email = email;
     if(password) userData.password = password;
 
@@ -240,7 +239,6 @@ export default function App() {
     }
     try {
       const dbUsers = await getAllUsers();
-      // Object ko array me safe-convert karna taaki dynamic verification smooth ho
       const usersList = Array.isArray(dbUsers) ? dbUsers : Object.values(dbUsers || {});
       
       const foundUser = usersList.find(
@@ -303,11 +301,39 @@ export default function App() {
     };
   }
 
+  // Yahan par mobile menu ke liye naye CSS styles jod diye gaye hain
   const fontLink = (
     <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;500;600;700;800&display=swap');
       * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
       body { background: #0F1513; }
+
+      @media (max-width: 768px) {
+        .hamburger-btn {
+          display: flex !important;
+          z-index: 101;
+        }
+        .nav-links {
+          display: none !important;
+          flex-direction: column;
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          background: #161F1C;
+          border-bottom: 1px solid #243029;
+          padding: 20px;
+          gap: 12px !important;
+          z-index: 100;
+        }
+        .nav-links.open {
+          display: flex !important;
+        }
+        .nav-links button {
+          width: 100%;
+          text-align: center;
+        }
+      }
     `}</style>
   );
 
@@ -335,24 +361,55 @@ export default function App() {
         </div>
       )}
 
-      <nav style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 24px", borderBottom: `1px solid ${cardBorder}` }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} onClick={() => setView(currentUser ? "dashboard" : "landing")}>
+      {/* Ye hai poora responsive navbar jo mobile par 3 lines ka menu dikhayega */}
+      <nav style={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center", 
+        padding: "18px 24px", 
+        borderBottom: `1px solid ${cardBorder}`,
+        position: "relative" 
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} onClick={() => { setView(currentUser ? "dashboard" : "landing"); setIsMenuOpen(false); }}>
           <Target color={lime} size={22} />
           <span style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 16, letterSpacing: 0.5 }}>CRAFTSKILL</span>
         </div>
-        <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+
+        <button 
+          onClick={() => setIsMenuOpen(!isMenuOpen)} 
+          style={{ 
+            display: "none", 
+            background: "transparent", 
+            border: "none", 
+            color: text, 
+            cursor: "pointer",
+            flexDirection: "column",
+            gap: "5px",
+            padding: "8px"
+          }}
+          className="hamburger-btn"
+        >
+          <div style={{ width: "22px", height: "2px", background: text, transition: "0.3s", transform: isMenuOpen ? "rotate(45deg) translate(5px, 5px)" : "none" }}></div>
+          <div style={{ width: "22px", height: "2px", background: text, opacity: isMenuOpen ? 0 : 1, transition: "0.3s" }}></div>
+          <div style={{ width: "22px", height: "2px", background: text, transition: "0.3s", transform: isMenuOpen ? "rotate(-45deg) translate(5px, -5px)" : "none" }}></div>
+        </button>
+
+        <div 
+          style={{ display: "flex", gap: 16, alignItems: "center" }}
+          className={`nav-links ${isMenuOpen ? "open" : ""}`}
+        >
           {currentUser ? (
             <>
-              <button onClick={() => setView("dashboard")} style={navBtnStyle(view === "dashboard", lime)}>Dashboard</button>
-              <button onClick={handleLogout} style={{ ...navBtnStyle(false, lime), color: muted }}>Logout</button>
+              <button onClick={() => { setView("dashboard"); setIsMenuOpen(false); }} style={navBtnStyle(view === "dashboard", lime)}>Dashboard</button>
+              <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} style={{ ...navBtnStyle(false, lime), color: muted }}>Logout</button>
             </>
           ) : (
             <>
-              <button onClick={() => setView("login")} style={{ ...navBtnStyle(false, lime), color: muted }}>Login</button>
-              <button onClick={() => setView("buy")} style={navBtnStyle(false, lime)}>Course Le Lein</button>
+              <button onClick={() => { setView("login"); setIsMenuOpen(false); }} style={{ ...navBtnStyle(false, lime), color: muted }}>Login</button>
+              <button onClick={() => { setView("buy"); setIsMenuOpen(false); }} style={navBtnStyle(false, lime)}>Course Le Lein</button>
             </>
           )}
-          <button onClick={() => { setView("admin"); loadAdminUsers(); }} style={{ background: "transparent", border: "none", color: muted, cursor: "pointer" }}>
+          <button onClick={() => { setView("admin"); loadAdminUsers(); setIsMenuOpen(false); }} style={{ background: "transparent", border: "none", color: muted, cursor: "pointer" }}>
             <Lock size={16} />
           </button>
         </div>
@@ -568,7 +625,6 @@ function StatCard({ label, value, muted, card, cardBorder, amber, highlight }) {
   );
 }
 
-// Object vs Array standard data render handling fix kiya hai yahan
 function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpdateLink, onToggleReseller, lime, amber, muted, card, cardBorder }) {
   const [urlInput, setUrlInput] = useState(dailyLink.url || "");
   const [labelInput, setLabelInput] = useState(dailyLink.label || "");
