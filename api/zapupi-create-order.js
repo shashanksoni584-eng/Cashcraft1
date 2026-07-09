@@ -15,7 +15,7 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         zap_key: process.env.ZAPUPI_KEY,
         order_id: orderId,
-        amount: amount || 199,
+        amount: String(amount || 199),
         customer_mobile: customer_mobile || "",
         remark: remark || "CashCraft Course",
         success_url: `${origin}/?order_id=${orderId}&status=success`,
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
         txn_id: data.txn_id,
       });
     } else {
-      res.status(400).json({ error: data.message || "Order creation failed" });
+      res.status(400).json({ error: data.message || "Order creation failed", raw: data });
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
