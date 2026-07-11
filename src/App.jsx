@@ -790,34 +790,6 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
     </div>
   );
 }
-
-                  
-                  
-                  
-            <button onClick={onPay} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, marginTop: 10, cursor: "pointer" }}>
-              Secure Pay ₹{COURSE_PRICE}
-            </button>
-          </>
-        )}
-        {buyStep === "paying" && (
-          <div style={{ textAlign: "center", padding: "24px 0" }}>
-            <div style={{ width: 40, height: 40, border: `3px solid ${cardBorder}`, borderTopColor: lime, borderRadius: "50%", margin: "0 auto 16px", animation: "spin 0.8s linear infinite" }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            <div style={{ color: muted, fontSize: 14 }}>Gateway redirection initiated...</div>
-          </div>
-        )}
-        {buyStep === "done" && (
-          <div style={{ textAlign: "center", padding: "16px 0" }}>
-            <CheckCircle2 color={lime} size={40} style={{ marginBottom: 12 }} />
-            <h3 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 8 }}>Activation Done!</h3>
-            <button onClick={onDone} style={{ background: lime, color: "#0F1513", border: "none", padding: "12px 24px", borderRadius: 999, fontWeight: 800, cursor: "pointer" }}>Go To Dashboard</button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function FieldInput({ label, value, onChange, muted, cardBorder, optional, type = "text" }) {
   return (
     <div style={{ marginBottom: 14 }}>
