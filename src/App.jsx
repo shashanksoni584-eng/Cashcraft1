@@ -11,6 +11,61 @@ const COURSE_PRICE = 199;
 const REFERRAL_BONUS = 99;
 const ADMIN_PASSCODE = "@sk804936"; 
 
+// Har skill ka price device ke hisab se — video editing aur thumbnail designing
+// mein mobile/laptop alag price hai, script writing single price hai,
+// combo mein teeno skills ek saath (3 price tiers).
+const SKILL_PRICING = {
+  video_editing: { mobile: 199, laptop: 299 },
+  thumbnail_designing: { mobile: 199, laptop: 299 },
+  script_writing: { default: 199 },
+  combo: { default: 199 },
+};
+
+function getDeviceTiers(skill) {
+  const p = SKILL_PRICING[skill];
+  if (!p || p.default !== undefined) return null;
+  return Object.entries(p); // [["mobile", 199], ["laptop", 299]] etc.
+}
+
+function getSkillPrice(skill, device) {
+  const p = SKILL_PRICING[skill] || SKILL_PRICING.video_editing;
+  if (p.default !== undefined) return p.default;
+  return p[device] || p[Object.keys(p)[0]];
+}
+
+function needsDeviceChoice(skill) {
+  const p = SKILL_PRICING[skill];
+  return !!p && p.default === undefined;
+}
+
+function getSkillDisplayName(skill) {
+  if (skill === "thumbnail_designing") return "Thumbnail Designing";
+  if (skill === "script_writing") return "Script Writing";
+  if (skill === "combo") return "Combo (All 3 Skills)";
+  return "Video Editing";
+}
+
+function getSkillLink(dailyLink, skill, deviceType) {
+  if (skill === "thumbnail_designing") {
+    return deviceType === "laptop" ? dailyLink.thumbLaptopUrl : dailyLink.thumbMobileUrl;
+  }
+  if (skill === "script_writing") {
+    return dailyLink.scriptUrl;
+  }
+  // default: video_editing
+  return deviceType === "laptop" ? dailyLink.videoLaptopUrl : dailyLink.videoMobileUrl;
+}
+
+// Combo package unlocks all three skills — returns an array of
+// { label, url } entries instead of a single link.
+function getComboLinks(dailyLink) {
+  return [
+    { label: "🎬 Video Editing (Mobile)", url: dailyLink.videoMobileUrl },
+    { label: "🎨 Thumbnail Designing (Mobile)", url: dailyLink.thumbMobileUrl },
+    { label: "✍️ Script Writing", url: dailyLink.scriptUrl },
+  ];
+}
+
 const uid = () => Math.random().toString(36).slice(2, 9);
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const genRefCode = (name) =>
@@ -56,14 +111,21 @@ function getEarnings(user, category) {
 }
 
 export default function App() {
-  const [dailyLink, setDailyLinkState] = useState({ url: "", label: "", videoUrl: "", thumbnailUrl: "", scriptUrl: "" });
+  const [dailyLink, setDailyLinkState] = useState({
+    label: "",
+    videoMobileUrl: "",
+    videoLaptopUrl: "",
+    thumbMobileUrl: "",
+    thumbLaptopUrl: "",
+    scriptUrl: "",
+  });
   const [currentPhone, setCurrentPhone] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("landing");
   const [dashSubView, setDashSubView] = useState("dashboard"); 
-  const [buyForm, setBuyForm] = useState({ name: '', phone: '', email: '', password: '', refCode: '', selectedSkill: 'video_editing' });
+  const [buyForm, setBuyForm] = useState({ name: '', phone: '', email: '', password: '', refCode: '', selectedSkill: 'video_editing', deviceType: 'mobile' });
   const [buyStep, setBuyStep] = useState("form");
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [adminPass, setAdminPass] = useState("");
@@ -75,11 +137,12 @@ export default function App() {
       const dl = await getDailyLink();
       if (dl) {
         setDailyLinkState({
-          url: dl.url || "",
           label: dl.label || "",
-          videoUrl: dl.videoUrl || "",
-          thumbnailUrl: dl.thumbnailUrl || "",
-          scriptUrl: dl.scriptUrl || ""
+          videoMobileUrl: dl.videoMobileUrl || "",
+          videoLaptopUrl: dl.videoLaptopUrl || "",
+          thumbMobileUrl: dl.thumbMobileUrl || "",
+          thumbLaptopUrl: dl.thumbLaptopUrl || "",
+          scriptUrl: dl.scriptUrl || "",
         });
       }
 
@@ -101,7 +164,7 @@ export default function App() {
             const statusData = await statusRes.json();
 
             if (statusData.verified) {
-              await finalizePurchase(pending.name, pending.phone, pending.refCode, pending.email, pending.password, pending.selectedSkill);
+              await finalizePurchase(pending.name, pending.phone, pending.refCode, pending.email, pending.password, pending.selectedSkill, pending.deviceType, pending.price);
               localStorage.removeItem("craftskill_pending_order");
               setView("dashboard");
               setDashSubView("dashboard");
@@ -136,11 +199,12 @@ export default function App() {
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3000); };
 
   async function handlePurchase() {
-    const { name, phone, refCode, email, password, selectedSkill } = buyForm;
+    const { name, phone, refCode, email, password, selectedSkill, deviceType } = buyForm;
     if (!name.trim() || phone.trim().length < 8 || !email.trim() || !password.trim()) {
       showToast("Saari details sahi se bharein!");
       return;
     }
+    const price = getSkillPrice(selectedSkill, deviceType);
     setBuyStep("paying");
 
     try {
@@ -148,9 +212,9 @@ export default function App() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: COURSE_PRICE,
+          amount: price,
           customer_mobile: phone.trim(),
-          remark: `Craftskill | ${name.trim()}`,
+          remark: `Craftskill | ${name.trim()} | ${selectedSkill}${needsDeviceChoice(selectedSkill) ? " " + deviceType : ""}`,
         }),
       });
       const order = await orderRes.json();
@@ -170,7 +234,9 @@ export default function App() {
           refCode: refCode.trim(),
           email: email.trim(),
           password: password.trim(),
-          selectedSkill: selectedSkill || "video_editing"
+          selectedSkill: selectedSkill || "video_editing",
+          deviceType: deviceType || "mobile",
+          price,
         })
       );
 
@@ -181,7 +247,7 @@ export default function App() {
     }
   }
 
-  async function finalizePurchase(name, phone, refCode, email, password, selectedSkill) {
+  async function finalizePurchase(name, phone, refCode, email, password, selectedSkill, deviceType, price) {
     const existing = await getUser(phone);
     const referrer = refCode ? await findByReferralCode(refCode) : null;
 
@@ -197,7 +263,8 @@ export default function App() {
       transactions: [],
       profilePic: "", 
       portfolio: [],
-      selectedSkill: selectedSkill || "video_editing"
+      selectedSkill: selectedSkill || "video_editing",
+      deviceType: deviceType || "mobile",
     };
     userData.purchased = true;
     userData.purchaseDate = todayStr();
@@ -205,6 +272,8 @@ export default function App() {
     if(email) userData.email = email;
     if(password) userData.password = password;
     if(selectedSkill) userData.selectedSkill = selectedSkill;
+    if(deviceType) userData.deviceType = deviceType;
+    if(price) userData.coursePrice = price;
 
     await setUser(phone, userData);
 
@@ -241,7 +310,7 @@ export default function App() {
       const statusData = await statusRes.json();
 
       if (statusData.verified) {
-        await finalizePurchase(pending.name, pending.phone, pending.refCode, pending.email, pending.password, pending.selectedSkill);
+        await finalizePurchase(pending.name, pending.phone, pending.refCode, pending.email, pending.password, pending.selectedSkill, pending.deviceType, pending.price);
         localStorage.removeItem("craftskill_pending_order");
         setBuyStep("done");
       } else {
@@ -328,7 +397,7 @@ export default function App() {
     setView("dashboard");
     setDashSubView("dashboard");
     setBuyStep("form");
-    setBuyForm({ name: "", phone: "", email: "", password: "", refCode: "", selectedSkill: "video_editing" });
+    setBuyForm({ name: "", phone: "", email: "", password: "", refCode: "", selectedSkill: "video_editing", deviceType: "mobile" });
   }
 
   async function toggleReseller(phone, current) {
@@ -499,7 +568,7 @@ export default function App() {
                     <div style={{ fontSize: 13, color: muted, marginBottom: 2 }}>📧 {currentUser.email || "Email not set"}</div>
                     <div style={{ fontSize: 13, color: muted, marginBottom: 4 }}>📞 {currentUser.phone}</div>
                     <div style={{ display: "inline-block", fontSize: 11, background: "#0F1513", border: `1px solid ${amber}`, color: amber, padding: "4px 10px", borderRadius: 999, fontWeight: 700 }}>
-                      Course: {currentUser.selectedSkill === "thumbnail_designing" ? "🎨 Thumbnail Design" : currentUser.selectedSkill === "script_writing" ? "✍️ Script Writing" : "🎬 Video Editing"}
+                      Course: {currentUser.selectedSkill === "combo" ? "🎁 Combo (All 3)" : currentUser.selectedSkill === "thumbnail_designing" ? "🎨 Thumbnail Design" : currentUser.selectedSkill === "script_writing" ? "✍️ Script Writing" : "🎬 Video Editing"}
                     </div>
                   </div>
                 </div>
@@ -558,34 +627,44 @@ export default function App() {
               
               <p style={{ color: muted, fontSize: 13.5, maxWidth: 460, margin: "0 auto 24px", lineHeight: 1.6 }}>
                 Aapne active skill registration <span style={{ color: amber, fontWeight: 700 }}>
-                  {currentUser.selectedSkill === "thumbnail_designing" ? "Thumbnail Designing" : 
-                   currentUser.selectedSkill === "script_writing" ? "Script Writing" : "Video Editing"}
+                  {getSkillDisplayName(currentUser.selectedSkill)}
                 </span> chuni hai. Niche diye link se direct class dashboard join karein:
               </p>
 
-              <a 
-                href={
-                  currentUser.selectedSkill === "thumbnail_designing" ? dailyLink.thumbnailUrl :
-                  currentUser.selectedSkill === "script_writing" ? dailyLink.scriptUrl :
-                  dailyLink.videoUrl || dailyLink.url
-                } 
-                target="_blank" 
-                rel="noreferrer"
-                style={{ 
-                  display: "inline-flex", 
-                  alignItems: "center",
-                  gap: 8,
-                  background: lime, 
-                  color: "#0F1513", 
-                  padding: "12px 28px", 
-                  borderRadius: 999, 
-                  fontWeight: 800, 
-                  textDecoration: "none",
-                  boxShadow: `0 4px 15px ${lime}33`
-                }}
-              >
-                Join Live Classroom <ArrowRight size={16} />
-              </a>
+              {currentUser.selectedSkill === "combo" ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, alignItems: "center" }}>
+                  {getComboLinks(dailyLink).map((c, i) => (
+                    c.url ? (
+                      <a key={i} href={c.url} target="_blank" rel="noreferrer"
+                        style={{ display: "inline-flex", alignItems: "center", gap: 8, background: lime, color: "#0F1513", padding: "10px 22px", borderRadius: 999, fontWeight: 800, textDecoration: "none", fontSize: 13 }}>
+                        {c.label} <ArrowRight size={14} />
+                      </a>
+                    ) : (
+                      <div key={i} style={{ color: muted, fontSize: 12.5 }}>{c.label} — Coming soon</div>
+                    )
+                  ))}
+                </div>
+              ) : (
+                <a 
+                  href={getSkillLink(dailyLink, currentUser.selectedSkill, currentUser.deviceType)} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  style={{ 
+                    display: "inline-flex", 
+                    alignItems: "center",
+                    gap: 8,
+                    background: lime, 
+                    color: "#0F1513", 
+                    padding: "12px 28px", 
+                    borderRadius: 999, 
+                    fontWeight: 800, 
+                    textDecoration: "none",
+                    boxShadow: `0 4px 15px ${lime}33`
+                  }}
+                >
+                  Join Live Classroom <ArrowRight size={16} />
+                </a>
+              )}
 
               <hr style={{ border: "none", borderTop: `1px solid ${cardBorder}`, margin: "32px 0" }} />
               
@@ -723,12 +802,23 @@ function LoginFlow({ onLogin, lime, amber, muted, card, cardBorder }) {
 /* ---- BUY FLOW WITH SKILL DROP+DOWN ---- */
 function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, lime, amber, muted, card, cardBorder, bg }) {
   const hasPending = typeof window !== "undefined" && localStorage.getItem("craftskill_pending_order");
+  const currentPrice = getSkillPrice(buyForm.selectedSkill, buyForm.deviceType);
+
+  const [comboOpen, setComboOpen] = useState(false);
+
+  const skillOptions = [
+    { key: "video_editing", label: "🎬 Video Editing", color: lime, img: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=500&auto=format&fit=crop&q=60" },
+    { key: "thumbnail_designing", label: "🎨 Thumbnail Designing", color: amber, img: "https://images.unsplash.com/photo-1626785774573-4b799315345d?w=500&auto=format&fit=crop&q=60" },
+    { key: "script_writing", label: "✍️ Script Writing", color: "#38BDF8", img: "https://images.unsplash.com/photo-1512046011337-41a5c7275ba1?w=500&auto=format&fit=crop&q=60" },
+    { key: "combo", label: "🎁 Combo (All 3)", color: "#C084FC", combo: true },
+  ];
+
   return (
     <div style={{ maxWidth: 440, margin: "0 auto", padding: "56px 24px" }}>
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28 }}>
         {buyStep === "form" && (
           <>
-            <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Setup Account — ₹{COURSE_PRICE}</h2>
+            <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Setup Account — ₹{currentPrice}</h2>
             {hasPending && (
               <div style={{ background: "#0F1513", border: `1px solid ${amber}`, borderRadius: 12, padding: 14, marginBottom: 18 }}>
                 <div style={{ fontSize: 13, color: amber, fontWeight: 700, marginBottom: 8 }}>Previous Payment Detected</div>
@@ -741,25 +831,110 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
             <FieldInput label="Active WhatsApp Phone" value={buyForm.phone} onChange={(v) => setBuyForm({ ...buyForm, phone: v })} muted={muted} cardBorder={cardBorder} />
             <FieldInput label="Gmail ID (For future Logins)" value={buyForm.email} onChange={(v) => setBuyForm({ ...buyForm, email: v })} muted={muted} cardBorder={cardBorder} />
             <FieldInput label="Set Secure Password" type="password" value={buyForm.password} onChange={(v) => setBuyForm({ ...buyForm, password: v })} muted={muted} cardBorder={cardBorder} />
-            
-            {/* Skill Selection Dropdown Added Successfully */}
-            <div style={{ marginBottom: 14, textAlign: "left" }}>
-              <label style={{ fontSize: 12, color: muted, display: "block", marginBottom: 6 }}>Apna Course Select Chunein <span style={{ color: lime }}>*</span></label>
-              <select 
-                value={buyForm.selectedSkill || "video_editing"}
-                onChange={(e) => setBuyForm({ ...buyForm, selectedSkill: e.target.value })}
-                style={{ width: "100%", background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "11px 12px", color: "#F2F5F0", fontSize: 14, outline: "none", cursor: "pointer" }}
-              >
-                <option value="video_editing">🎬 Video Editing Complete Course</option>
-                <option value="thumbnail_designing">🎨 Thumbnail Designing Course</option>
-                <option value="script_writing">✍️ Script Writing Specialist</option>
-              </select>
+
+            {/* Image-based skill picker */}
+            <div style={{ marginBottom: 16, textAlign: "left" }}>
+              <label style={{ fontSize: 12, color: muted, display: "block", marginBottom: 8 }}>Apna Course Select Chunein <span style={{ color: lime }}>*</span></label>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 8 }}>
+                {skillOptions.map((s) => {
+                  const active = buyForm.selectedSkill === s.key;
+                  if (s.combo) {
+                    return (
+                      <div
+                        key={s.key}
+                        onClick={() => setBuyForm({ ...buyForm, selectedSkill: s.key })}
+                        style={{
+                          cursor: "pointer",
+                          borderRadius: 10,
+                          overflow: "hidden",
+                          border: `2px solid ${active ? s.color : cardBorder}`,
+                          background: active ? `${s.color}22` : "#0F1513",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          height: 54,
+                          position: "relative",
+                        }}
+                      >
+                        <span style={{ fontSize: 20 }}>🎁</span>
+                        <div style={{ padding: "6px 4px 2px", fontSize: 10.5, textAlign: "center", color: active ? s.color : muted, fontWeight: 700, lineHeight: 1.3 }}>
+                          {s.label}
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setComboOpen((v) => !v); }}
+                          style={{ position: "absolute", top: 2, right: 2, background: "transparent", border: "none", color: muted, cursor: "pointer", padding: 2 }}
+                        >
+                          {comboOpen ? "▲" : "▼"}
+                        </button>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div
+                      key={s.key}
+                      onClick={() => setBuyForm({ ...buyForm, selectedSkill: s.key })}
+                      style={{
+                        cursor: "pointer",
+                        borderRadius: 10,
+                        overflow: "hidden",
+                        border: `2px solid ${active ? s.color : cardBorder}`,
+                        background: "#0F1513",
+                      }}
+                    >
+                      <img src={s.img} alt={s.label} style={{ width: "100%", height: 54, objectFit: "cover", opacity: active ? 1 : 0.6 }} />
+                      <div style={{ padding: "6px 4px", fontSize: 10.5, textAlign: "center", color: active ? s.color : muted, fontWeight: 700, lineHeight: 1.3 }}>
+                        {s.label}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {comboOpen && (
+                <div style={{ marginTop: 8, background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: 12 }}>
+                  <div style={{ fontSize: 11.5, color: muted, marginBottom: 6, fontWeight: 700 }}>Combo mein ye teeno shamil hain:</div>
+                  <div style={{ fontSize: 12, color: lime, marginBottom: 3 }}>🎬 Video Editing</div>
+                  <div style={{ fontSize: 12, color: amber, marginBottom: 3 }}>🎨 Thumbnail Designing</div>
+                  <div style={{ fontSize: 12, color: "#38BDF8" }}>✍️ Script Writing</div>
+                </div>
+              )}
             </div>
+
+            {/* Mobile vs Laptop, only for skills that need it */}
+            {needsDeviceChoice(buyForm.selectedSkill) && (
+              <div style={{ marginBottom: 16, textAlign: "left" }}>
+                <label style={{ fontSize: 12, color: muted, display: "block", marginBottom: 8 }}>Device Chunein <span style={{ color: lime }}>*</span></label>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  {["mobile", "laptop"].map((d) => {
+                    const active = (buyForm.deviceType || "mobile") === d;
+                    const price = getSkillPrice(buyForm.selectedSkill, d);
+                    return (
+                      <button
+                        key={d}
+                        onClick={() => setBuyForm({ ...buyForm, deviceType: d })}
+                        style={{
+                          background: active ? lime : "#0F1513",
+                          color: active ? "#0F1513" : "#F2F5F0",
+                          border: `1px solid ${active ? lime : cardBorder}`,
+                          borderRadius: 10,
+                          padding: "10px 8px",
+                          fontWeight: 700,
+                          fontSize: 13,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {d === "mobile" ? "📱 Mobile" : "💻 Laptop"} — ₹{price}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <FieldInput label="Referral Code (Optional)" value={buyForm.refCode} onChange={(v) => setBuyForm({ ...buyForm, refCode: v })} muted={muted} cardBorder={cardBorder} optional />
             
             <button onClick={onPay} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, marginTop: 10, cursor: "pointer" }}>
-              Secure Pay ₹{COURSE_PRICE}
+              Secure Pay ₹{currentPrice}
             </button>
           </>
         )}
@@ -794,9 +969,9 @@ function FieldInput({ label, value, onChange, muted, cardBorder, optional, type 
 
 /* ---- DASHBOARD UI ---- */
 function Dashboard({ user, earnings, dailyLink, lime, amber, muted, card, cardBorder }) {
-  const currentSkillLink = user.selectedSkill === "thumbnail_designing" ? dailyLink.thumbnailUrl :
-                           user.selectedSkill === "script_writing" ? dailyLink.scriptUrl :
-                           dailyLink.videoUrl || dailyLink.url;
+  const isCombo = user.selectedSkill === "combo";
+  const currentSkillLink = isCombo ? null : getSkillLink(dailyLink, user.selectedSkill, user.deviceType);
+  const comboLinks = isCombo ? getComboLinks(dailyLink) : [];
 
   return (
     <div>
@@ -820,7 +995,20 @@ function Dashboard({ user, earnings, dailyLink, lime, amber, muted, card, cardBo
           <Link2 size={16} color={lime} />
           <span style={{ fontWeight: 700, fontSize: 14 }}>Daily Active Lesson Resource</span>
         </div>
-        {currentSkillLink ? (
+        {isCombo ? (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {comboLinks.map((c, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span style={{ fontSize: 13, color: muted }}>{c.label}</span>
+                {c.url ? (
+                  <a href={c.url} target="_blank" rel="noreferrer" style={{ color: lime, fontSize: 12.5, fontWeight: 700 }}>Open Link</a>
+                ) : (
+                  <span style={{ color: muted, fontSize: 12 }}>Coming soon</span>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : currentSkillLink ? (
           <a href={currentSkillLink} target="_blank" rel="noreferrer" style={{ color: lime, fontSize: 13.5, wordBreak: "break-all" }}>
             {dailyLink.label || "Click here to open your batch classroom link"}
           </a>
@@ -843,8 +1031,10 @@ function StatCard({ label, value, muted, card, cardBorder, amber, highlight }) {
 
 /* ---- ADMIN PANEL MANAGING THREE SKILL LINKS ---- */
 function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpdateLink, onToggleReseller, onAddClientPayment, lime, amber, muted, card, cardBorder, bg }) {
-  const [videoLinkInput, setVideoLinkInput] = useState(dailyLink.videoUrl || "");
-  const [thumbLinkInput, setThumbLinkInput] = useState(dailyLink.thumbnailUrl || "");
+  const [videoMobileInput, setVideoMobileInput] = useState(dailyLink.videoMobileUrl || "");
+  const [videoLaptopInput, setVideoLaptopInput] = useState(dailyLink.videoLaptopUrl || "");
+  const [thumbMobileInput, setThumbMobileInput] = useState(dailyLink.thumbMobileUrl || "");
+  const [thumbLaptopInput, setThumbLaptopInput] = useState(dailyLink.thumbLaptopUrl || "");
   const [scriptLinkInput, setScriptLinkInput] = useState(dailyLink.scriptUrl || "");
   const [labelInput, setLabelInput] = useState(dailyLink.label || "");
   const [paymentAmount, setPaymentAmount] = useState({});
@@ -869,22 +1059,31 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpd
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
       <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Craftskill Management Console</h2>
       
-      {/* Three Separated Custom Admin Links Added Successfully */}
+      {/* Five Separated Admin Links — Mobile/Laptop split for Video & Thumbnail */}
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20, marginBottom: 20 }}>
         <div style={{ fontWeight: 700, marginBottom: 16, color: lime }}>🌐 Dynamic Separate Batch Links Configuration</div>
-        
-        <FieldInput label="🎬 Video Editing Class Link" value={videoLinkInput} onChange={setVideoLinkInput} muted={muted} cardBorder={cardBorder} />
-        <FieldInput label="🎨 Thumbnail Designing Class Link" value={thumbLinkInput} onChange={setThumbLinkInput} muted={muted} cardBorder={cardBorder} />
-        <FieldInput label="✍️ Script Writing Class Link" value={scriptLinkInput} onChange={setScriptLinkInput} muted={muted} cardBorder={cardBorder} />
+
+        <div style={{ fontSize: 12, color: amber, fontWeight: 700, marginBottom: 8, marginTop: 4 }}>🎬 Video Editing</div>
+        <FieldInput label="📱 Video Editing — Mobile Link" value={videoMobileInput} onChange={setVideoMobileInput} muted={muted} cardBorder={cardBorder} />
+        <FieldInput label="💻 Video Editing — Laptop Link" value={videoLaptopInput} onChange={setVideoLaptopInput} muted={muted} cardBorder={cardBorder} />
+
+        <div style={{ fontSize: 12, color: amber, fontWeight: 700, marginBottom: 8, marginTop: 12 }}>🎨 Thumbnail Designing</div>
+        <FieldInput label="📱 Thumbnail Designing — Mobile Link" value={thumbMobileInput} onChange={setThumbMobileInput} muted={muted} cardBorder={cardBorder} />
+        <FieldInput label="💻 Thumbnail Designing — Laptop Link" value={thumbLaptopInput} onChange={setThumbLaptopInput} muted={muted} cardBorder={cardBorder} />
+
+        <div style={{ fontSize: 12, color: amber, fontWeight: 700, marginBottom: 8, marginTop: 12 }}>✍️ Script Writing</div>
+        <FieldInput label="Script Writing Class Link" value={scriptLinkInput} onChange={setScriptLinkInput} muted={muted} cardBorder={cardBorder} />
+
         <FieldInput label="Text Display Label (Optional)" value={labelInput} onChange={setLabelInput} muted={muted} cardBorder={cardBorder} optional />
         
         <button 
           onClick={() => onUpdateLink({
-            url: videoLinkInput, // Fallback support
             label: labelInput,
-            videoUrl: videoLinkInput,
-            thumbnailUrl: thumbLinkInput,
-            scriptUrl: scriptLinkInput
+            videoMobileUrl: videoMobileInput,
+            videoLaptopUrl: videoLaptopInput,
+            thumbMobileUrl: thumbMobileInput,
+            thumbLaptopUrl: thumbLaptopInput,
+            scriptUrl: scriptLinkInput,
           })} 
           style={{ background: lime, color: "#0F1513", border: "none", padding: "11px 22px", borderRadius: 10, fontWeight: 800, cursor: "pointer", marginTop: 6 }}
         >
@@ -899,7 +1098,9 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, dailyLink, onUpd
             <div>
               <div style={{ fontSize: 14, fontWeight: 600 }}>{u.name} <span style={{ color: muted, fontWeight: 400, fontSize: 12 }}>· {u.phone}</span></div>
               <div style={{ fontSize: 11.5, color: lime, fontWeight: 600, marginTop: 2 }}>
-                Active: {u.selectedSkill === "thumbnail_designing" ? "Thumbnail" : u.selectedSkill === "script_writing" ? "Script" : "Video Editing"}
+                Active: {getSkillDisplayName(u.selectedSkill)}
+                {needsDeviceChoice(u.selectedSkill) && ` (${u.deviceType === "laptop" ? "Laptop" : "Mobile"})`}
+                {u.coursePrice ? ` · ₹${u.coursePrice}` : ""}
               </div>
               <div style={{ fontSize: 11.5, color: muted, marginTop: 2 }}>Code: {u.referralCode} · Works: {(u.portfolio||[]).length}</div>
             </div>
