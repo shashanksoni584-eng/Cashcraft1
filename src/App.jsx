@@ -11,13 +11,13 @@ const COURSE_PRICE = 199; // Sirf combo pack ka unified price
 const REFERRAL_BONUS = 99;
 const ADMIN_PASSCODE = "@sk804936"; 
 
-// Images for 3 skills
-// Images for 3 skills
+// Updated Skill Images
 const SKILL_IMAGES = {
   video: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=500&auto=format&fit=crop&q=60",
   thumb: "https://images.unsplash.com/photo-1626785774573-4b799315345d?w=500&auto=format&fit=crop&q=60",
-  script: "1000419871.jpg" //
+  script: "/1000419871.jpg"
 };
+
 
 
 const uid = () => Math.random().toString(36).slice(2, 9);
