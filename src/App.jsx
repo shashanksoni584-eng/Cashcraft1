@@ -749,10 +749,8 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
             <FieldInput label="Set Secure Password" type="password" value={buyForm.password} onChange={(v) => setBuyForm({ ...buyForm, password: v })} muted={muted} cardBorder={cardBorder} />
             <FieldInput label="Referral Code (Optional)" value={buyForm.refCode} onChange={(v) => setBuyForm({ ...buyForm, refCode: v })} muted={muted} cardBorder={cardBorder} optional />
 
-            {/* Displaying Combo Pack Details visually */}
             <div style={{ background: "#0F1513", border: `2px solid ${lime}`, borderRadius: 12, padding: 16, marginTop: 24, marginBottom: 20 }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: lime, marginBottom: 12, textAlign: "center" }}>🎁 CRAFTSKILL MASTER COMBO</div>
-              <p style={{ color: muted, fontSize: 11.5, textAlign: "center", marginBottom: 12 }}>Is plan mein aapko ye teeno courses ka permanent access milega.</p>
               <div style={{ display: "flex", gap: 8, justifyContent: "space-between" }}>
                 <div style={{ flex: 1, textAlign: "center" }}>
                   <img src={SKILL_IMAGES.video} alt="Video" style={{ width: "100%", height: 50, objectFit: "cover", borderRadius: 6, marginBottom: 4 }} />
@@ -760,12 +758,39 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
                 </div>
                 <div style={{ flex: 1, textAlign: "center" }}>
                   <img src={SKILL_IMAGES.thumb} alt="Thumb" style={{ width: "100%", height: 50, objectFit: "cover", borderRadius: 6, marginBottom: 4 }} />
-                  <div style={{ fontSize: 10, color: "#FFF", fontWeight: 600 }}>Thumbnail Design</div>
+                  <div style={{ fontSize: 10, color: "#FFF", fontWeight: 600 }}>Thumbnail</div>
                 </div>
                 <div style={{ flex: 1, textAlign: "center" }}>
-<div style={{ flex: 1, textAlign: "center" }}>
-  <div style={{ fontSize: 10, color: "#FFF", fontWeight: 600 }}>Script Writing</div>
-</div>
+                  <img src={SKILL_IMAGES.script} alt="Script" style={{ width: "100%", height: 50, objectFit: "cover", borderRadius: 6, marginBottom: 4 }} />
+                  <div style={{ fontSize: 10, color: "#FFF", fontWeight: 600 }}>Script Writing</div>
+                </div>
+              </div>
+            </div>
+
+            <button onClick={onPay} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, cursor: "pointer" }}>
+              Secure Pay ₹{COURSE_PRICE}
+            </button>
+          </>
+        )}
+        {buyStep === "paying" && (
+          <div style={{ textAlign: "center", padding: "24px 0" }}>
+            <div style={{ width: 40, height: 40, border: `3px solid ${cardBorder}`, borderTopColor: lime, borderRadius: "50%", margin: "0 auto 16px", animation: "spin 0.8s linear infinite" }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            <div style={{ color: muted, fontSize: 14 }}>Gateway redirection initiated...</div>
+          </div>
+        )}
+        {buyStep === "done" && (
+          <div style={{ textAlign: "center", padding: "16px 0" }}>
+            <CheckCircle2 color={lime} size={40} style={{ marginBottom: 12 }} />
+            <h3 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 8 }}>Activation Done!</h3>
+            <button onClick={onDone} style={{ background: lime, color: "#0F1513", border: "none", padding: "12px 24px", borderRadius: 999, fontWeight: 800, cursor: "pointer" }}>Go To Dashboard</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
                   
                   
                   
