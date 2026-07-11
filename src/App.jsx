@@ -758,7 +758,7 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
 
 <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "12px", overflow: "hidden" }}>
   <img 
-    src="https://images.unsplash.com/photo-1512046011337-41a5c7275ba1?w=500&auto=format&fit=crop&q=60" 
+    src={SKILL_IMAGES.script} 
     alt="Script Writing" 
     style={{ width: "100%", height: "140px", objectFit: "cover", display: "block" }} 
   />
