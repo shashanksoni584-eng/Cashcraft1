@@ -685,12 +685,19 @@ function Landing({ lime, amber, muted, card, cardBorder, onBuy }) {
           </div>
 
 <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: "12px", overflow: "hidden" }}>
-  <img src="https://images.unsplash.com/photo-1512046011337-41a5c7275ba1?w=500&auto=format&fit=crop&q=60" alt="Script Writing" style={{ width: "100%", height: "140px", objectFit: "cover" }} />
+  <div style={{ width: "100%", height: "140px", overflow: "hidden" }}>
+    <img 
+      src="https://images.unsplash.com/photo-1512046011337-41a5c7275ba1?w=500&auto=format&fit=crop&q=60" 
+      alt="Script Writing" 
+      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} 
+    />
+  </div>
   <div style={{ padding: "16px" }}>
     <h3 style={{ fontSize: 15, fontWeight: 700, color: "#38BDF8", marginBottom: 6 }}>✍️ Script Writing</h3>
     <p style={{ color: muted, fontSize: 12, lineHeight: "1.4" }}>Audience retention hooks, storytelling frameworks aur engaging content structures likhna seekhein.</p>
   </div>
 </div>
+          
           
 
         </div>
