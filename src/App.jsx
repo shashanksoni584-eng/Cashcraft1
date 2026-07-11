@@ -763,12 +763,11 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
                   <div style={{ fontSize: 10, color: "#FFF", fontWeight: 600 }}>Thumbnail Design</div>
                 </div>
                 <div style={{ flex: 1, textAlign: "center" }}>
-                  <img src={SKILL_IMAGES.script} alt="Script" style={{ width: "100%", height: 50, objectFit: "cover", borderRadius: 6, marginBottom: 4 }} />
-                  <div style={{ fontSize: 10, color: "#FFF", fontWeight: 600 }}>Script Writing</div>
-                </div>
-              </div>
-            </div>
-
+                  <div style={{ flex: 1, textAlign: "center" }}>
+  <img src={SKILL_IMAGES.script} alt="Script" style={{ width: "100%", height: 50, objectFit: "cover", b... }} />
+  <div style={{ fontSize: 10, color: "#FFF", fontWeight: 600 }}>Script Writing</div>
+</div>
+                  
             <button onClick={onPay} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, marginTop: 10, cursor: "pointer" }}>
               Secure Pay ₹{COURSE_PRICE}
             </button>
