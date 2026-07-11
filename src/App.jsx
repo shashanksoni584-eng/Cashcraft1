@@ -16,7 +16,7 @@ const ADMIN_PASSCODE = "@sk804936";
 const SKILL_IMAGES = {
   video: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=500&auto=format&fit=crop&q=60",
   thumb: "https://images.unsplash.com/photo-1626785774573-4b799315345d?w=500&auto=format&fit=crop&q=60",
-  script: "https://images.unsplash.com/photo-1455390582262-044cdead27d8?w=500&auto=format&fit=crop&q=60" 
+  script: "https://images.unsplash.com/photo-1488190211105-8b0e65b80b4e?w=500&auto=format&fit=crop&q=60" 
 };
 
 
@@ -87,6 +87,21 @@ export default function App() {
   const [adminPass, setAdminPass] = useState("");
   const [toast, setToast] = useState("");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [pricingRows, setPricingRows] = useState([
+    { service: "", price: "" },
+    { service: "", price: "" },
+    { service: "", price: "" },
+    { service: "", price: "" },
+    { service: "", price: "" },
+  ]);
+
+  useEffect(() => {
+    if (currentUser) {
+      const saved = currentUser.pricingList || [];
+      const padded = Array.from({ length: 5 }, (_, i) => saved[i] || { service: "", price: "" });
+      setPricingRows(padded);
+    }
+  }, [currentUser?.phone]);
 
   useEffect(() => {
     (async () => {
@@ -334,6 +349,18 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+  function updatePricingRow(index, field, value) {
+    setPricingRows((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+  }
+
+  async function savePricing() {
+    const cleaned = pricingRows.filter((r) => r.service.trim() || r.price.toString().trim());
+    const updatedUser = { ...currentUser, pricingList: pricingRows };
+    await setUser(currentPhone, updatedUser);
+    setCurrentUser(updatedUser);
+    showToast(cleaned.length ? "Pricing update ho gayi!" : "Pricing save ho gayi!");
+  }
+
   function handleLogout() {
     localStorage.removeItem("craftskill_session");
     setCurrentPhone(null);
@@ -390,6 +417,11 @@ export default function App() {
       body { background: #0F1513; overflow-x: hidden; }
       .no-scrollbar::-webkit-scrollbar { display: none; }
       .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      .ck-card { transition: transform 0.25s ease, box-shadow 0.25s ease; box-shadow: 0 2px 14px rgba(0,0,0,0.18); }
+      .ck-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,0,0,0.35); }
+      .ck-btn { transition: filter 0.2s ease, transform 0.15s ease; }
+      .ck-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
+      .ck-btn:active { transform: translateY(0); filter: brightness(0.96); }
     `}</style>
   );
 
@@ -501,7 +533,7 @@ export default function App() {
           {/* ---- ACCOUNT & PROFILE SECTION ---- */}
           {dashSubView === "account" && (
             <div>
-              <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
+              <div className="ck-card" style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24, marginBottom: 20 }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 20 }}>
                   <div style={{ position: "relative" }}>
                     <img src={currentUser.profilePic || "https://api.dicebear.com/7.x/avataaars/svg?seed=fallback"} 
@@ -522,10 +554,10 @@ export default function App() {
                 </div>
               </div>
 
-              <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
+              <div className="ck-card" style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>My Portfolio / Works</div>
-                  <label style={{ background: lime, color: "#0F1513", padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
+                  <label className="ck-btn" style={{ background: lime, color: "#0F1513", padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
                     <UploadCloud size={16} /> Upload Work
                     <input type="file" accept="image/*,video/*" onChange={handlePortfolioUpload} style={{ display: "none" }} />
                   </label>
@@ -557,6 +589,46 @@ export default function App() {
                   </div>
                 )}
               </div>
+
+              <div className="ck-card" style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20, marginTop: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <DollarSign size={16} color={amber} />
+                  <div style={{ fontWeight: 700, fontSize: 15 }}>My Services & Pricing</div>
+                </div>
+                <p style={{ color: muted, fontSize: 12.5, marginBottom: 16 }}>
+                  Apni service ka naam aur price yahan set karein — jab clients aapse contact karenge, unhe yeh pricing dikhayi jayegi.
+                </p>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {pricingRows.map((row, idx) => (
+                    <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span style={{ width: 20, color: muted, fontSize: 12, fontWeight: 700 }}>{idx + 1}.</span>
+                      <input
+                        type="text"
+                        placeholder={`Service ${idx + 1} (jaise: Video Editing - 1 Reel)`}
+                        value={row.service}
+                        onChange={(e) => updatePricingRow(idx, "service", e.target.value)}
+                        style={{ flex: 2, background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 8, padding: "10px 12px", color: "#F2F5F0", fontSize: 13, outline: "none" }}
+                      />
+                      <input
+                        type="number"
+                        placeholder="₹ Price"
+                        value={row.price}
+                        onChange={(e) => updatePricingRow(idx, "price", e.target.value)}
+                        style={{ flex: 1, background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 8, padding: "10px 12px", color: amber, fontSize: 13, outline: "none" }}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  className="ck-btn"
+                  onClick={savePricing}
+                  style={{ width: "100%", background: amber, color: "#0F1513", border: "none", padding: "12px", borderRadius: 10, fontWeight: 800, cursor: "pointer", marginTop: 16 }}
+                >
+                  Save Pricing
+                </button>
+              </div>
             </div>
           )}
 
@@ -567,7 +639,7 @@ export default function App() {
 
           {/* ---- SKILL LINK & CLIENT DASHBOARD ---- */}
           {dashSubView === "clientChat" && (
-            <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 30 }}>
+            <div className="ck-card" style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 30 }}>
               <div style={{ textAlign: "center", marginBottom: 24 }}>
                 <h3 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 8 }}>Permanent Workspace Links</h3>
                 <p style={{ color: muted, fontSize: 13.5, maxWidth: 460, margin: "0 auto", lineHeight: 1.6 }}>
@@ -716,7 +788,7 @@ function LoginFlow({ onLogin, lime, amber, muted, card, cardBorder }) {
         <p style={{ color: muted, fontSize: 13.5, marginBottom: 20 }}>Apni secure Gmail ID aur password credentials dalkar continue karein.</p>
         <FieldInput label="Gmail ID Address" value={email} onChange={(v) => setEmail(v)} muted={muted} cardBorder={cardBorder} />
         <FieldInput label="Secure Account Password" type="password" value={password} onChange={(v) => setPassword(v)} muted={muted} cardBorder={cardBorder} />
-        <button onClick={() => onLogin(email, password)} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 10, fontWeight: "bold", marginTop: 10, cursor: "pointer" }}>
+        <button className="ck-btn" onClick={() => onLogin(email, password)} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 10, fontWeight: "bold", marginTop: 10, cursor: "pointer" }}>
           Verify & Open Dashboard
         </button>
       </div>
@@ -767,7 +839,7 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
               </div>
             </div>
 
-            <button onClick={onPay} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, cursor: "pointer" }}>
+            <button className="ck-btn" onClick={onPay} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, cursor: "pointer" }}>
               Secure Pay ₹{COURSE_PRICE}
             </button>
           </>
@@ -845,7 +917,7 @@ function CourseRow({ title, img, url, lime, cardBorder, muted }) {
         <div style={{ fontSize: 11, color: muted }}>Permanent Access Link</div>
       </div>
       {url ? (
-        <a href={url} target="_blank" rel="noreferrer" style={{ background: lime, color: "#0F1513", padding: "8px 14px", borderRadius: 8, fontSize: 11, fontWeight: 800, textDecoration: "none", display: "inline-block" }}>Join Class</a>
+        <a href={url} target="_blank" rel="noreferrer" className="ck-btn" style={{ background: lime, color: "#0F1513", padding: "8px 14px", borderRadius: 8, fontSize: 11, fontWeight: 800, textDecoration: "none", display: "inline-block" }}>Join Class</a>
       ) : (
         <span style={{ fontSize: 11, color: muted, padding: "8px 10px" }}>No Link Yet</span>
       )}
@@ -903,6 +975,7 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, courseLinks, onU
             thumbUrl: thumbInput,
             scriptUrl: scriptInput,
           })} 
+          className="ck-btn"
           style={{ background: lime, color: "#0F1513", border: "none", padding: "11px 22px", borderRadius: 10, fontWeight: 800, cursor: "pointer", marginTop: 6 }}
         >
           Push Links to All Users
