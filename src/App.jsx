@@ -12,11 +12,13 @@ const REFERRAL_BONUS = 99;
 const ADMIN_PASSCODE = "@sk804936"; 
 
 // Images for 3 skills
+// Images for 3 skills
 const SKILL_IMAGES = {
   video: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=500&auto=format&fit=crop&q=60",
   thumb: "https://images.unsplash.com/photo-1626785774573-4b799315345d?w=500&auto=format&fit=crop&q=60",
-  script: "https://images.unsplash.com/photo-1512046011337-41a5c7275ba1?w=500&auto=format&fit=crop&q=60"
+  script: "https://images.unsplash.com/photo-1455390582262-044cdead27d8?w=500&auto=format&fit=crop&q=60" // Writing hand image
 };
+
 
 const uid = () => Math.random().toString(36).slice(2, 9);
 const todayStr = () => new Date().toISOString().slice(0, 10);
