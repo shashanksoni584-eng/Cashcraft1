@@ -763,9 +763,9 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
                   <div style={{ fontSize: 10, color: "#FFF", fontWeight: 600 }}>Thumbnail Design</div>
                 </div>
                 <div style={{ flex: 1, textAlign: "center" }}>
-          <div style={{ flex: 1, textAlign: "center" }}>
-            <div style={{ fontSize: 10, color: "#FFF", fontWeight: 600 }}>Script Writing</div>
-          </div>
+<div style={{ flex: 1, textAlign: "center" }}>
+  <div style={{ fontSize: 10, color: "#FFF", fontWeight: 600 }}>Script Writing</div>
+</div>
                   
                   
                   
