@@ -9,6 +9,8 @@ import {
 
 const COURSE_PRICE = 199; // Sirf combo pack ka unified price
 const REFERRAL_BONUS = 99;
+const RESELLER_REFERRAL_BONUS = 85; // Retailer/Reseller ko har referral par milega
+const RESELLER_DISCOUNT = 20; // Retailer ke link se join karne wale ko itna off milega
 const ADMIN_PASSCODE = "@sk804936"; 
 const ADMIN_WALLET_PHONE = "__platform_admin_wallet__";
 
@@ -193,11 +195,14 @@ export default function App() {
     setBuyStep("paying");
 
     try {
+      const referrer = refCode.trim() ? await findByReferralCode(refCode.trim()) : null;
+      const finalPrice = referrer && referrer.isReseller ? COURSE_PRICE - RESELLER_DISCOUNT : COURSE_PRICE;
+
       const orderRes = await fetch("/api/zapupi-create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount: COURSE_PRICE,
+          amount: finalPrice,
           customer_mobile: phone.trim(),
           remark: `Craftskill | ${name.trim()} | Combo Pack`,
         }),
@@ -219,7 +224,7 @@ export default function App() {
           refCode: refCode.trim(),
           email: email.trim(),
           password: password.trim(),
-          price: COURSE_PRICE,
+          price: finalPrice,
         })
       );
 
@@ -258,15 +263,16 @@ export default function App() {
     await setUser(phone, userData);
 
     if (referrer) {
+      const bonus = referrer.isReseller ? RESELLER_REFERRAL_BONUS : REFERRAL_BONUS;
       const updatedReferrer = {
         ...referrer,
         transactions: [
           ...(referrer.transactions || []),
-          { id: uid(), date: todayStr(), amount: REFERRAL_BONUS, type: "credit", category: "referral", source: `Referral: ${name} registered` },
+          { id: uid(), date: todayStr(), amount: bonus, type: "credit", category: "referral", source: `Referral: ${name} registered` },
         ],
       };
       await setUser(referrer.phone, updatedReferrer);
-      await creditAdminWallet(REFERRAL_BONUS, `Referral signup: ${name}`, "referral");
+      await creditAdminWallet(bonus, `Referral signup: ${name}`, "referral");
     }
 
     localStorage.setItem("craftskill_session", phone);
@@ -924,13 +930,38 @@ function LoginFlow({ onLogin, lime, amber, muted, card, cardBorder }) {
 /* ---- BUY FLOW WITH COMBO PACK ONLY ---- */
 function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, lime, amber, muted, card, cardBorder }) {
   const hasPending = typeof window !== "undefined" && localStorage.getItem("craftskill_pending_order");
+  const [retailerInfo, setRetailerInfo] = useState(null);
+
+  useEffect(() => {
+    const code = (buyForm.refCode || "").trim();
+    if (!code) {
+      setRetailerInfo(null);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      const referrer = await findByReferralCode(code);
+      if (!cancelled) {
+        setRetailerInfo(referrer && referrer.isReseller ? referrer : null);
+      }
+    }, 450);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [buyForm.refCode]);
+
+  const finalPrice = retailerInfo ? COURSE_PRICE - RESELLER_DISCOUNT : COURSE_PRICE;
 
   return (
     <div style={{ maxWidth: 440, margin: "0 auto", padding: "56px 24px" }}>
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: 28 }}>
         {buyStep === "form" && (
           <>
-            <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Setup Account — ₹{COURSE_PRICE}</h2>
+            <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>
+              Setup Account — {retailerInfo ? (
+                <><span style={{ textDecoration: "line-through", color: muted, fontSize: 16 }}>₹{COURSE_PRICE}</span> <span style={{ color: lime }}>₹{finalPrice}</span></>
+              ) : (
+                <>₹{COURSE_PRICE}</>
+              )}
+            </h2>
             {hasPending && (
               <div style={{ background: "#0F1513", border: `1px solid ${amber}`, borderRadius: 12, padding: 14, marginBottom: 18 }}>
                 <div style={{ fontSize: 13, color: amber, fontWeight: 700, marginBottom: 8 }}>Previous Payment Detected</div>
@@ -945,6 +976,11 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
             <FieldInput label="Gmail ID (For future Logins)" value={buyForm.email} onChange={(v) => setBuyForm({ ...buyForm, email: v })} muted={muted} cardBorder={cardBorder} />
             <FieldInput label="Set Secure Password" type="password" value={buyForm.password} onChange={(v) => setBuyForm({ ...buyForm, password: v })} muted={muted} cardBorder={cardBorder} />
             <FieldInput label="Referral Code (Optional)" value={buyForm.refCode} onChange={(v) => setBuyForm({ ...buyForm, refCode: v })} muted={muted} cardBorder={cardBorder} optional />
+            {retailerInfo && (
+              <div style={{ background: "#0F1F14", border: `1px solid ${lime}`, borderRadius: 10, padding: "10px 12px", marginTop: -6, marginBottom: 14, fontSize: 12, color: lime, fontWeight: 700 }}>
+                🎉 Retailer code applied ({retailerInfo.name}) — ₹{RESELLER_DISCOUNT} off, ab pay karo sirf ₹{finalPrice}
+              </div>
+            )}
 
             <div style={{ background: "#0F1513", border: `2px solid ${lime}`, borderRadius: 12, padding: 16, marginTop: 24, marginBottom: 20 }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: lime, marginBottom: 12, textAlign: "center" }}>🎁 CRAFTSKILL MASTER COMBO</div>
@@ -965,7 +1001,7 @@ function BuyFlow({ buyForm, setBuyForm, buyStep, onPay, onDone, onCheckPending, 
             </div>
 
             <button className="ck-btn" onClick={onPay} style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 12, fontWeight: 800, cursor: "pointer" }}>
-              Secure Pay ₹{COURSE_PRICE}
+              Secure Pay ₹{finalPrice}
             </button>
           </>
         )}
@@ -1255,6 +1291,14 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, courseLinks, onU
                 {u.coursePrice ? ` · ₹${u.coursePrice}` : ""}
               </div>
               <div style={{ fontSize: 11.5, color: muted, marginTop: 2 }}>Code: {u.referralCode} · Works: {(u.portfolio||[]).length}</div>
+              {u.isReseller && (() => {
+                const downline = normalizedUsers.filter((x) => x.referredBy === u.referralCode);
+                return (
+                  <div style={{ fontSize: 11.5, color: amber, marginTop: 2 }}>
+                    🏪 Retailer Referrals ({downline.length}){downline.length ? `: ${downline.map((d) => d.name).join(", ")}` : ""}
+                  </div>
+                );
+              })()}
             </div>
             
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
