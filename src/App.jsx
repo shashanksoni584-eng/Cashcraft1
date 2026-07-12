@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Flame, Target, Copy, Share2, ShieldCheck, Link2, Users,
-  TrendingUp, CheckCircle2, ArrowRight, Lock, Menu, X, User, MessageSquare, Camera, UploadCloud, Video, ImageIcon, DollarSign
+  TrendingUp, CheckCircle2, ArrowRight, Lock, Menu, X, User, MessageSquare, Camera, UploadCloud, Video, ImageIcon, DollarSign, Wallet, Send
 } from "lucide-react";
 import {
   getUser, setUser, getAllUsers, findByReferralCode, getDailyLink, setDailyLink,
@@ -66,6 +66,12 @@ function getEarnings(user, category) {
     monthly: tx.filter((t) => daysAgo(t.date) < 30).reduce((s, t) => s + t.amount, 0),
     total: tx.reduce((s, t) => s + t.amount, 0),
   };
+}
+
+function getBalance(user) {
+  if (!user) return 0;
+  const tx = user.transactions || [];
+  return tx.reduce((s, t) => s + (t.type === "debit" ? -t.amount : t.amount), 0);
 }
 
 export default function App() {
@@ -361,6 +367,28 @@ export default function App() {
     showToast(cleaned.length ? "Pricing update ho gayi!" : "Pricing save ho gayi!");
   }
 
+  async function handleWithdraw(upiId, amountStr) {
+    const amt = Number(amountStr);
+    if (!upiId || !upiId.trim()) {
+      showToast("UPI ID dalein");
+      return;
+    }
+    if (!amt || amt <= 0) {
+      showToast("Sahi amount dalein");
+      return;
+    }
+    const balance = getBalance(currentUser);
+    if (amt > balance) {
+      showToast("Balance kam hai, itna withdraw nahi kar sakte");
+      return;
+    }
+    const newTx = { id: uid(), date: todayStr(), amount: amt, type: "debit", category: "withdrawal", source: `Withdrawal request \u2014 UPI: ${upiId.trim()}` };
+    const updatedUser = { ...currentUser, transactions: [...(currentUser.transactions || []), newTx] };
+    await setUser(currentPhone, updatedUser);
+    setCurrentUser(updatedUser);
+    showToast(`\u20b9${amt} withdrawal request submit ho gaya!`);
+  }
+
   function handleLogout() {
     localStorage.removeItem("craftskill_session");
     setCurrentPhone(null);
@@ -511,6 +539,21 @@ export default function App() {
         </div>
         
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {currentUser && (
+            <div
+              onClick={() => { setView("dashboard"); setDashSubView("dashboard"); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 6, cursor: "pointer",
+                background: "#0F1513", border: `1px solid ${lime}`, borderRadius: 999,
+                padding: "6px 12px", boxShadow: `0 0 12px ${lime}22`
+              }}
+            >
+              <Wallet size={14} color={lime} />
+              <span style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 12.5, color: lime }}>
+                ₹{getBalance(currentUser)}
+              </span>
+            </div>
+          )}
           {!currentUser && (
             <button onClick={() => setView("buy")} style={{ background: lime, color: "#0F1513", border: "none", padding: "8px 16px", borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Join Now</button>
           )}
@@ -634,7 +677,7 @@ export default function App() {
 
           {/* ---- MAIN DASHBOARD ---- */}
           {dashSubView === "dashboard" && (
-            <Dashboard user={currentUser} earnings={clientEarnings} courseLinks={courseLinks} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} showToast={showToast} />
+            <Dashboard user={currentUser} earnings={clientEarnings} courseLinks={courseLinks} balance={getBalance(currentUser)} onWithdraw={handleWithdraw} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} showToast={showToast} />
           )}
 
           {/* ---- SKILL LINK & CLIENT DASHBOARD ---- */}
@@ -873,7 +916,7 @@ function FieldInput({ label, value, onChange, muted, cardBorder, optional, type 
 }
 
 /* ---- DASHBOARD UI ---- */
-function Dashboard({ user, earnings, courseLinks, lime, amber, muted, card, cardBorder }) {
+function Dashboard({ user, earnings, courseLinks, balance = 0, onWithdraw, lime, amber, muted, card, cardBorder }) {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
@@ -890,6 +933,8 @@ function Dashboard({ user, earnings, courseLinks, lime, amber, muted, card, card
         <StatCard label="Weekly Client Earn" value={earnings.weekly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
         <StatCard label="Monthly Client Earn" value={earnings.monthly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
       </div>
+
+      <WithdrawalCard balance={balance} onWithdraw={onWithdraw} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />
 
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
@@ -930,6 +975,97 @@ function StatCard({ label, value, muted, card, cardBorder, amber, highlight }) {
     <div style={{ background: card, border: `1px solid ${highlight ? amber : cardBorder}`, borderRadius: 14, padding: "16px 14px" }}>
       <div style={{ fontSize: 11, color: muted, marginBottom: 6 }}>{label}</div>
       <div style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 20, color: highlight ? amber : "#F2F5F0" }}>₹{value}</div>
+    </div>
+  );
+}
+
+/* ---- WITHDRAWAL CARD (Balance + UPI Withdraw) ---- */
+function WithdrawalCard({ balance = 0, onWithdraw, lime, amber, muted, card, cardBorder }) {
+  const [upiId, setUpiId] = useState("");
+  const [amount, setAmount] = useState("");
+
+  const quickAmounts = [100, 200, 500];
+
+  function pick(val) {
+    setAmount(String(val));
+  }
+
+  function pickFull() {
+    setAmount(balance > 0 ? String(balance) : "");
+  }
+
+  function submit() {
+    onWithdraw(upiId, amount);
+    setAmount("");
+  }
+
+  return (
+    <div className="ck-card" style={{ background: card, border: `2px solid ${lime}`, borderRadius: 16, padding: 20, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Wallet size={18} color={lime} />
+          <span style={{ fontWeight: 700, fontSize: 15 }}>Account Balance</span>
+        </div>
+      </div>
+      <div style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 32, color: lime, marginBottom: 18 }}>₹{balance}</div>
+
+      <div style={{ borderTop: `1px solid ${cardBorder}`, paddingTop: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <Send size={14} color={amber} />
+          <span style={{ fontWeight: 700, fontSize: 13.5 }}>Withdraw Funds</span>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <label style={{ fontSize: 12, color: muted, display: "block", marginBottom: 6 }}>UPI ID</label>
+          <input
+            type="text"
+            placeholder="yourname@upi"
+            value={upiId}
+            onChange={(e) => setUpiId(e.target.value)}
+            style={{ width: "100%", background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "11px 12px", color: "#F2F5F0", fontSize: 14, outline: "none" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 10 }}>
+          <label style={{ fontSize: 12, color: muted, display: "block", marginBottom: 6 }}>Amount</label>
+          <input
+            type="number"
+            placeholder="Amount type karein"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            style={{ width: "100%", background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "11px 12px", color: amber, fontSize: 14, outline: "none" }}
+          />
+        </div>
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+          {quickAmounts.map((val) => (
+            <button
+              key={val}
+              className="ck-btn"
+              onClick={() => pick(val)}
+              style={{ flex: "1 1 70px", background: amount === String(val) ? amber : "#0F1513", color: amount === String(val) ? "#0F1513" : muted, border: `1px solid ${cardBorder}`, borderRadius: 999, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+            >
+              ₹{val}
+            </button>
+          ))}
+          <button
+            className="ck-btn"
+            onClick={pickFull}
+            style={{ flex: "1 1 90px", background: amount !== "" && amount === String(balance) ? amber : "#0F1513", color: amount !== "" && amount === String(balance) ? "#0F1513" : muted, border: `1px solid ${cardBorder}`, borderRadius: 999, padding: "8px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+          >
+            Total (₹{balance})
+          </button>
+        </div>
+
+        <button
+          className="ck-btn"
+          onClick={submit}
+          style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "13px", borderRadius: 10, fontWeight: 800, cursor: "pointer" }}
+        >
+          Withdraw Request Bhejein
+        </button>
+        <p style={{ fontSize: 11, color: muted, marginTop: 10, textAlign: "center" }}>Withdrawal 24-48 hours mein aapke UPI account mein process ho jayega.</p>
+      </div>
     </div>
   );
 }
