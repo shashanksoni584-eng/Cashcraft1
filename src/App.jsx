@@ -10,6 +10,16 @@ import {
 const COURSE_PRICE = 199; // Sirf combo pack ka unified price
 const REFERRAL_BONUS = 99;
 const ADMIN_PASSCODE = "@sk804936"; 
+const ADMIN_WALLET_PHONE = "__platform_admin_wallet__";
+
+async function creditAdminWallet(amount, source, category = "platform") {
+  const existing = await getUser(ADMIN_WALLET_PHONE);
+  const base = existing || { phone: ADMIN_WALLET_PHONE, name: "Platform Wallet", transactions: [] };
+  const newTx = { id: uid(), date: todayStr(), amount, type: "credit", category, source };
+  const updated = { ...base, transactions: [...(base.transactions || []), newTx] };
+  await setUser(ADMIN_WALLET_PHONE, updated);
+  return updated;
+}
 
 // Updated Skill Images
 // Updated Skill Images - Sabhi images load hongi
@@ -83,6 +93,7 @@ export default function App() {
   
   const [currentPhone, setCurrentPhone] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
+  const [adminWallet, setAdminWallet] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("landing");
@@ -255,6 +266,7 @@ export default function App() {
         ],
       };
       await setUser(referrer.phone, updatedReferrer);
+      await creditAdminWallet(REFERRAL_BONUS, `Referral signup: ${name}`, "referral");
     }
 
     localStorage.setItem("craftskill_session", phone);
@@ -382,11 +394,47 @@ export default function App() {
       showToast("Balance kam hai, itna withdraw nahi kar sakte");
       return;
     }
-    const newTx = { id: uid(), date: todayStr(), amount: amt, type: "debit", category: "withdrawal", source: `Withdrawal request \u2014 UPI: ${upiId.trim()}` };
-    const updatedUser = { ...currentUser, transactions: [...(currentUser.transactions || []), newTx] };
+    const newReq = { id: uid(), date: todayStr(), amount: amt, upiId: upiId.trim(), status: "pending" };
+    const updatedUser = { ...currentUser, withdrawalRequests: [...(currentUser.withdrawalRequests || []), newReq] };
     await setUser(currentPhone, updatedUser);
     setCurrentUser(updatedUser);
-    showToast(`\u20b9${amt} withdrawal request submit ho gaya!`);
+    showToast(`\u20b9${amt} withdrawal request admin ko bhej diya gaya! Approval ke baad paisa milega.`);
+  }
+
+  async function approveWithdrawal(phone, requestId) {
+    const dbUsers = await getAllUsers();
+    const usersList = Array.isArray(dbUsers) ? dbUsers : Object.values(dbUsers || {});
+    const targetUser = usersList.find((u) => u.phone === phone);
+    if (!targetUser) return;
+    const req = (targetUser.withdrawalRequests || []).find((r) => r.id === requestId);
+    if (!req || req.status !== "pending") return;
+    const debitTx = { id: uid(), date: todayStr(), amount: req.amount, type: "debit", category: "withdrawal", source: `Withdrawal paid \u2014 UPI: ${req.upiId}` };
+    const updatedUser = {
+      ...targetUser,
+      transactions: [...(targetUser.transactions || []), debitTx],
+      withdrawalRequests: targetUser.withdrawalRequests.map((r) => (r.id === requestId ? { ...r, status: "approved" } : r)),
+    };
+    await setUser(phone, updatedUser);
+    if (currentPhone === phone) setCurrentUser(updatedUser);
+    loadAdminUsers();
+    showToast(`₹${req.amount} withdrawal ${targetUser.name} ke liye paid mark ho gaya`);
+  }
+
+  async function rejectWithdrawal(phone, requestId) {
+    const dbUsers = await getAllUsers();
+    const usersList = Array.isArray(dbUsers) ? dbUsers : Object.values(dbUsers || {});
+    const targetUser = usersList.find((u) => u.phone === phone);
+    if (!targetUser) return;
+    const req = (targetUser.withdrawalRequests || []).find((r) => r.id === requestId);
+    if (!req || req.status !== "pending") return;
+    const updatedUser = {
+      ...targetUser,
+      withdrawalRequests: targetUser.withdrawalRequests.map((r) => (r.id === requestId ? { ...r, status: "rejected" } : r)),
+    };
+    await setUser(phone, updatedUser);
+    if (currentPhone === phone) setCurrentUser(updatedUser);
+    loadAdminUsers();
+    showToast(`${targetUser.name} ka withdrawal request reject kar diya gaya`);
   }
 
   function handleLogout() {
@@ -422,6 +470,7 @@ export default function App() {
       if (currentPhone === targetPhone) {
         setCurrentUser(updatedUser);
       }
+      await creditAdminWallet(amount, `Client payment for ${targetUser.name}`, "client");
       loadAdminUsers();
       showToast(`₹${amount} Client payment added!`);
     }
@@ -430,6 +479,8 @@ export default function App() {
   async function loadAdminUsers() {
     const users = await getAllUsers();
     setAllUsers(users);
+    const wallet = await getUser(ADMIN_WALLET_PHONE);
+    setAdminWallet(wallet || { transactions: [] });
   }
 
   async function updateCourseLinks(newLinksObject) {
@@ -513,6 +564,7 @@ export default function App() {
               <button onClick={() => { setDashSubView("dashboard"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "dashboard", lime, card)}><Target size={16}/> Dashboard</button>
               <button onClick={() => { setDashSubView("clientChat"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "clientChat", lime, card)}><MessageSquare size={16}/> Client Chat / Links</button>
               <button onClick={() => { setDashSubView("referral"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "referral", lime, card)}><Users size={16}/> Referral System</button>
+              <button onClick={() => { setDashSubView("withdraw"); setIsMenuOpen(false); }} style={sideMenuBtnStyle(dashSubView === "withdraw", lime, card)}><Wallet size={16}/> Withdraw Funds</button>
               <button onClick={() => { handleLogout(); setIsMenuOpen(false); }} style={{ ...sideMenuBtnStyle(false, lime, card), color: "#FF6B6B", marginTop: 'auto' }}>Logout</button>
             </>
           ) : (
@@ -677,7 +729,7 @@ export default function App() {
 
           {/* ---- MAIN DASHBOARD ---- */}
           {dashSubView === "dashboard" && (
-            <Dashboard user={currentUser} earnings={clientEarnings} courseLinks={courseLinks} balance={getBalance(currentUser)} onWithdraw={handleWithdraw} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} showToast={showToast} />
+            <Dashboard user={currentUser} earnings={clientEarnings} courseLinks={courseLinks} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} showToast={showToast} />
           )}
 
           {/* ---- SKILL LINK & CLIENT DASHBOARD ---- */}
@@ -733,6 +785,35 @@ export default function App() {
             </div>
           )}
 
+          {/* ---- WITHDRAW FUNDS (separate section) ---- */}
+          {dashSubView === "withdraw" && (
+            <div>
+              <WithdrawalCard balance={getBalance(currentUser)} onWithdraw={handleWithdraw} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />
+
+              <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
+                <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 14 }}>Withdrawal History</div>
+                {(currentUser.withdrawalRequests || []).length === 0 && (
+                  <div style={{ color: muted, fontSize: 12.5 }}>Abhi tak koi withdrawal request nahi ki gayi.</div>
+                )}
+                {[...(currentUser.withdrawalRequests || [])].reverse().map((r) => (
+                  <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${cardBorder}` }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>₹{r.amount} <span style={{ color: muted, fontWeight: 400, fontSize: 11 }}>· {r.upiId}</span></div>
+                      <div style={{ fontSize: 11, color: muted }}>{r.date}</div>
+                    </div>
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999,
+                      background: r.status === "approved" ? "#123A1E" : r.status === "rejected" ? "#3A1414" : "#2A2010",
+                      color: r.status === "approved" ? lime : r.status === "rejected" ? "#FF6B6B" : amber,
+                    }}>
+                      {r.status === "approved" ? "Paid ✓" : r.status === "rejected" ? "Rejected" : "Pending"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>
       )}
 
@@ -741,6 +822,7 @@ export default function App() {
           onUnlock={() => { if (adminPass === ADMIN_PASSCODE) { setAdminUnlocked(true); loadAdminUsers(); } else showToast("Galat passcode"); }}
           users={allUsers} courseLinks={courseLinks} onUpdateLink={updateCourseLinks} onToggleReseller={toggleReseller}
           onAddClientPayment={addClientPayment}
+          platformBalance={getBalance(adminWallet)} onApproveWithdrawal={approveWithdrawal} onRejectWithdrawal={rejectWithdrawal}
           lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />
       )}
 
@@ -916,7 +998,7 @@ function FieldInput({ label, value, onChange, muted, cardBorder, optional, type 
 }
 
 /* ---- DASHBOARD UI ---- */
-function Dashboard({ user, earnings, courseLinks, balance = 0, onWithdraw, lime, amber, muted, card, cardBorder }) {
+function Dashboard({ user, earnings, courseLinks, lime, amber, muted, card, cardBorder }) {
   return (
     <div>
       <div style={{ marginBottom: 24 }}>
@@ -933,8 +1015,6 @@ function Dashboard({ user, earnings, courseLinks, balance = 0, onWithdraw, lime,
         <StatCard label="Weekly Client Earn" value={earnings.weekly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
         <StatCard label="Monthly Client Earn" value={earnings.monthly} muted={muted} card={card} cardBorder={cardBorder} amber={amber} />
       </div>
-
-      <WithdrawalCard balance={balance} onWithdraw={onWithdraw} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />
 
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
@@ -1071,7 +1151,7 @@ function WithdrawalCard({ balance = 0, onWithdraw, lime, amber, muted, card, car
 }
 
 /* ---- ADMIN PANEL MANAGING PERMANENT LINKS ---- */
-function AdminPanel({ unlocked, pass, setPass, onUnlock, users, courseLinks, onUpdateLink, onToggleReseller, onAddClientPayment, lime, amber, muted, card, cardBorder }) {
+function AdminPanel({ unlocked, pass, setPass, onUnlock, users, courseLinks, onUpdateLink, onToggleReseller, onAddClientPayment, platformBalance = 0, onApproveWithdrawal, onRejectWithdrawal, lime, amber, muted, card, cardBorder }) {
   const [videoInput, setVideoInput] = useState(courseLinks.videoUrl || "");
   const [thumbInput, setThumbInput] = useState(courseLinks.thumbUrl || "");
   const [scriptInput, setScriptInput] = useState(courseLinks.scriptUrl || "");
@@ -1092,11 +1172,57 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, courseLinks, onU
   }
 
   const normalizedUsers = Array.isArray(users) ? users : Object.values(users || {});
+  const pendingWithdrawals = [];
+  normalizedUsers.forEach((u) => {
+    (u.withdrawalRequests || []).forEach((r) => {
+      if (r.status === "pending") pendingWithdrawals.push({ ...r, userPhone: u.phone, userName: u.name });
+    });
+  });
 
   return (
     <div style={{ maxWidth: 720, margin: "0 auto", padding: "40px 24px" }}>
       <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 22, marginBottom: 20 }}>Craftskill Management Console</h2>
-      
+
+      {/* Platform Balance */}
+      <div style={{ background: card, border: `2px solid ${lime}`, borderRadius: 16, padding: 20, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+          <Wallet size={16} color={lime} />
+          <span style={{ fontWeight: 700, fontSize: 13.5 }}>My Platform Balance</span>
+        </div>
+        <div style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 28, color: lime }}>₹{platformBalance}</div>
+        <div style={{ fontSize: 11.5, color: muted, marginTop: 4 }}>Har client payment aur referral conversion ka credit yahan aata hai.</div>
+      </div>
+
+      {/* Pending Withdrawal Requests */}
+      <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20, marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+          <Send size={16} color={amber} />
+          <span style={{ fontWeight: 700, fontSize: 14 }}>Withdrawal Requests ({pendingWithdrawals.length} pending)</span>
+        </div>
+        {pendingWithdrawals.length === 0 && (
+          <div style={{ color: muted, fontSize: 12.5 }}>Abhi koi pending withdrawal request nahi hai.</div>
+        )}
+        {pendingWithdrawals.map((r) => (
+          <div key={r.id} style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: `1px solid ${cardBorder}`, gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{r.userName} <span style={{ color: muted, fontWeight: 400, fontSize: 12 }}>· {r.userPhone}</span></div>
+              <div style={{ fontSize: 13, color: amber, fontWeight: 700, marginTop: 2 }}>₹{r.amount} → {r.upiId}</div>
+              <div style={{ fontSize: 11, color: muted, marginTop: 2 }}>{r.date}</div>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => onApproveWithdrawal(r.userPhone, r.id)} className="ck-btn"
+                style={{ background: lime, color: "#0F1513", border: "none", padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+                Paid ✓
+              </button>
+              <button onClick={() => onRejectWithdrawal(r.userPhone, r.id)} className="ck-btn"
+                style={{ background: "transparent", color: "#FF6B6B", border: "1px solid #FF6B6B", padding: "8px 14px", borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+                Reject
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* 3 Permanent Links Configuration */}
       <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20, marginBottom: 20 }}>
         <div style={{ fontWeight: 700, marginBottom: 16, color: lime }}>🌐 Permanent Course Links Configuration</div>
