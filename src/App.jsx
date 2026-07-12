@@ -536,6 +536,14 @@ export default function App() {
       .ck-btn { transition: filter 0.2s ease, transform 0.15s ease; }
       .ck-btn:hover { filter: brightness(1.08); transform: translateY(-1px); }
       .ck-btn:active { transform: translateY(0); filter: brightness(0.96); }
+      .ck-navbar { position: sticky; top: 0; z-index: 1200; backdrop-filter: saturate(180%) blur(14px); background: rgba(15, 21, 19, 0.85); }
+      .ck-logo-img { width: 44px; height: 44px; border-radius: 10px; object-fit: cover; transition: transform 0.25s ease, box-shadow 0.25s ease; box-shadow: 0 0 0 1px rgba(180,255,57,0.25); }
+      .ck-logo-wrap:hover .ck-logo-img { transform: scale(1.08) rotate(-2deg); box-shadow: 0 0 18px rgba(180,255,57,0.35); }
+      .ck-brand-text { transition: color 0.2s ease, letter-spacing 0.2s ease; }
+      .ck-logo-wrap:hover .ck-brand-text { color: #B4FF39; letter-spacing: 0.8px; }
+      @media (max-width: 640px) {
+        .ck-logo-img { width: 38px; height: 38px; }
+      }
     `}</style>
   );
 
@@ -574,9 +582,9 @@ export default function App() {
         transform: isMenuOpen ? "translateX(0)" : "translateX(-100%)", transition: "transform 0.4s cubic-bezier(0.1, 1, 0.1, 1)"
       }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Target color={lime} size={20} />
-            <span style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 15 }}>CRAFTSKILL MENU</span>
+          <div className="ck-logo-wrap" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <img src="/logo.png" alt="CraftSkill Logo" className="ck-logo-img" style={{ width: 32, height: 32 }} />
+            <span className="ck-brand-text" style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 15 }}>CRAFTSKILL MENU</span>
           </div>
           <button onClick={() => setIsMenuOpen(false)} style={{ background: "transparent", border: "none", color: text, cursor: "pointer" }}><X size={20}/></button>
         </div>
@@ -614,14 +622,14 @@ export default function App() {
 
       {isMenuOpen && <div onClick={() => setIsMenuOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 999 }} />}
 
-      <nav style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 24px", borderBottom: `1px solid ${cardBorder}` }}>
+      <nav className="ck-navbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 24px", borderBottom: `1px solid ${cardBorder}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button onClick={() => setIsMenuOpen(true)} style={{ background: "transparent", border: "none", color: text, cursor: "pointer", display: "flex", alignItems: "center" }}>
             <Menu size={24} color={lime} />
           </button>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} onClick={() => setView(currentUser ? "dashboard" : "landing")}>
-            <Target color={lime} size={22} />
-            <span style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 16, letterSpacing: 0.5 }}>CRAFTSKILL</span>
+          <div className="ck-logo-wrap" style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }} onClick={() => setView(currentUser ? "dashboard" : "landing")}>
+            <img src="/logo.png" alt="CraftSkill Logo" className="ck-logo-img" />
+            <span className="ck-brand-text" style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 16, letterSpacing: 0.5, color: text }}>CRAFTSKILL</span>
           </div>
         </div>
         
