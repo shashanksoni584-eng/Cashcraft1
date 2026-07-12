@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import {
   Flame, Target, Copy, Share2, ShieldCheck, Link2, Users,
-  TrendingUp, CheckCircle2, ArrowRight, Lock, Menu, X, User, MessageSquare, Camera, UploadCloud, Video, ImageIcon, DollarSign, Wallet, Send
+  TrendingUp, CheckCircle2, ArrowRight, Lock, Menu, X, User, MessageSquare, Camera, UploadCloud, Video, ImageIcon, DollarSign, Wallet, Send,
+  Mail, Phone, Clock, FileText, Globe
 } from "lucide-react";
 import {
   getUser, setUser, getAllUsers, findByReferralCode, getDailyLink, setDailyLink,
@@ -84,6 +85,23 @@ function getBalance(user) {
   if (!user) return 0;
   const tx = user.transactions || [];
   return tx.reduce((s, t) => s + (t.type === "debit" ? -t.amount : t.amount), 0);
+}
+
+/* ---- SEO HELPER (sets tab title + meta description per page) ---- */
+function Seo({ title, description }) {
+  useEffect(() => {
+    if (title) document.title = title;
+    if (description) {
+      let tag = document.querySelector('meta[name="description"]');
+      if (!tag) {
+        tag = document.createElement("meta");
+        tag.setAttribute("name", "description");
+        document.head.appendChild(tag);
+      }
+      tag.setAttribute("content", description);
+    }
+  }, [title, description]);
+  return null;
 }
 
 export default function App() {
@@ -633,6 +651,11 @@ export default function App() {
       </nav>
 
       {view === "landing" && <Landing lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} onBuy={() => setView("buy")} />}
+      {view === "about" && <AboutPage lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} onBuy={() => setView("buy")} />}
+      {view === "contact" && <ContactPage lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} showToast={showToast} />}
+      {view === "privacy" && <PrivacyPage lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />}
+      {view === "terms" && <TermsPage lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />}
+      {view === "refund" && <RefundPage lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />}
       {view === "login" && <LoginFlow onLogin={handleLogin} lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />}
       {view === "buy" && (
         <BuyFlow buyForm={buyForm} setBuyForm={setBuyForm} buyStep={buyStep} onPay={handlePurchase} onDone={finishPurchaseFlow} onCheckPending={checkPendingPayment}
@@ -868,9 +891,7 @@ export default function App() {
           lime={lime} amber={amber} muted={muted} card={card} cardBorder={cardBorder} />
       )}
 
-      <footer style={{ textAlign: "center", padding: "28px 16px", color: muted, fontSize: 12, borderTop: `1px solid ${cardBorder}`, marginTop: 40 }}>
-        © Craftskill Learning Environment
-      </footer>
+      <Footer lime={lime} amber={amber} muted={muted} cardBorder={cardBorder} setView={setView} />
     </div>
   );
 }
@@ -1361,5 +1382,406 @@ function AdminPanel({ unlocked, pass, setPass, onUnlock, users, courseLinks, onU
         ))}
       </div>
     </div>
+  );
+}
+
+/* ==================================================================== */
+/* ---- STATIC INFO PAGES: About / Contact / Privacy / Terms / Refund ---- */
+/* ==================================================================== */
+
+function FeatureCard({ icon, title, desc, accent, card, cardBorder, muted }) {
+  return (
+    <div className="ck-card" style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 14, padding: 18 }}>
+      <div style={{ fontSize: 24, marginBottom: 10 }}>{icon}</div>
+      <h3 style={{ fontSize: 14.5, fontWeight: 700, color: accent, marginBottom: 6 }}>{title}</h3>
+      <p style={{ color: muted, fontSize: 12.5, lineHeight: 1.5 }}>{desc}</p>
+    </div>
+  );
+}
+
+/* ---- ABOUT US ---- */
+function AboutPage({ lime, amber, muted, card, cardBorder, onBuy }) {
+  return (
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "48px 20px 64px" }}>
+      <Seo
+        title="About Us | CraftSkill — Practical Digital Skills for Beginners & Freelancers"
+        description="CraftSkill is an online learning platform teaching Video Editing, Thumbnail Designing and Script Writing to teenagers, college students, beginners and aspiring freelancers."
+      />
+      <h1 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 28, marginBottom: 14, lineHeight: 1.3 }}>
+        About <span style={{ color: lime }}>CraftSkill</span>
+      </h1>
+      <p style={{ color: muted, fontSize: 14.5, lineHeight: 1.75, marginBottom: 32 }}>
+        CraftSkill is an online learning platform designed for teenagers, college students, beginners and aspiring
+        freelancers who want to build real, income-generating digital skills — without wasting years on theory.
+        Every course on CraftSkill is built around one goal: helping you learn something practical enough to
+        start earning from it.
+      </p>
+
+      <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 16 }}>What We Teach</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 36 }}>
+        <FeatureCard icon="🎬" title="Video Editing" desc="Transitions, cuts and sound design that turn raw footage into scroll-stopping content." accent={lime} card={card} cardBorder={cardBorder} muted={muted} />
+        <FeatureCard icon="🎨" title="Thumbnail Designing" desc="High-CTR layouts, color grading and composition rules that get the click." accent={amber} card={card} cardBorder={cardBorder} muted={muted} />
+        <FeatureCard icon="✍️" title="Script Writing" desc="Retention hooks and storytelling frameworks that keep viewers watching." accent="#38BDF8" card={card} cardBorder={cardBorder} muted={muted} />
+      </div>
+
+      <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 18, marginBottom: 14 }}>What You Can Do With CraftSkill</h2>
+      <ul style={{ color: muted, fontSize: 13.5, lineHeight: 2, marginBottom: 36, paddingLeft: 20 }}>
+        <li>Learn practical, job-ready digital skills</li>
+        <li>Build a real portfolio of your own work</li>
+        <li>Start freelancing and taking on paid clients</li>
+        <li>Earn online from home, on your own schedule</li>
+        <li>Grow your income further with our referral program</li>
+      </ul>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 16, marginBottom: 40 }}>
+        <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 14, padding: 20 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: lime, marginBottom: 8 }}>Our Mission</h2>
+          <p style={{ color: muted, fontSize: 13, lineHeight: 1.6 }}>
+            To make practical digital education affordable and accessible for everyone.
+          </p>
+        </div>
+        <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 14, padding: 20 }}>
+          <h2 style={{ fontSize: 14, fontWeight: 700, color: amber, marginBottom: 8 }}>Our Vision</h2>
+          <p style={{ color: muted, fontSize: 13, lineHeight: 1.6 }}>
+            To empower millions of learners with high-income digital skills and real career opportunities.
+          </p>
+        </div>
+      </div>
+
+      <button className="ck-btn" onClick={onBuy} style={{ background: lime, color: "#0F1513", border: "none", padding: "14px 30px", borderRadius: 999, fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
+        Start Learning — ₹{COURSE_PRICE}
+      </button>
+    </div>
+  );
+}
+
+/* ---- CONTACT US ---- */
+function ContactPage({ lime, amber, muted, card, cardBorder, showToast }) {
+  const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" });
+
+  function updateField(field, value) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  function submit(e) {
+    e.preventDefault();
+    if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+      showToast("Please fill in your name, email and message");
+      return;
+    }
+    const subject = encodeURIComponent(form.subject.trim() || "CraftSkill Support Query");
+    const body = encodeURIComponent(`Name: ${form.name}\nEmail: ${form.email}\n\n${form.message}`);
+    window.location.href = `mailto:support@craftskill.in?subject=${subject}&body=${body}`;
+    showToast("Opening your email app to send the message...");
+  }
+
+  return (
+    <div style={{ maxWidth: 720, margin: "0 auto", padding: "48px 20px 64px" }}>
+      <Seo
+        title="Contact Us | CraftSkill Support"
+        description="Get in touch with CraftSkill. Email support@craftskill.in, reach us on WhatsApp, or send a message using our contact form. We're here Monday–Saturday, 10 AM–7 PM IST."
+      />
+      <h1 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 28, marginBottom: 10 }}>Contact Us</h1>
+      <p style={{ color: muted, fontSize: 14, lineHeight: 1.7, marginBottom: 30 }}>
+        Have a question about a course, a payment, or your account? Our support team is happy to help — reach out
+        using any of the options below.
+      </p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginBottom: 36 }}>
+        <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 14, padding: 18 }}>
+          <Mail size={18} color={lime} style={{ marginBottom: 8 }} />
+          <div style={{ fontSize: 12, color: muted, marginBottom: 4 }}>Email</div>
+          <a href="mailto:support@craftskill.in" style={{ color: "#F2F5F0", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}>support@craftskill.in</a>
+        </div>
+        <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 14, padding: 18 }}>
+          <Globe size={18} color={amber} style={{ marginBottom: 8 }} />
+          <div style={{ fontSize: 12, color: muted, marginBottom: 4 }}>Website</div>
+          <a href="https://craftskill.in" target="_blank" rel="noreferrer" style={{ color: "#F2F5F0", fontSize: 13.5, fontWeight: 700, textDecoration: "none" }}>craftskill.in</a>
+        </div>
+        <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 14, padding: 18 }}>
+          <MessageSquare size={18} color="#38BDF8" style={{ marginBottom: 8 }} />
+          <div style={{ fontSize: 12, color: muted, marginBottom: 4 }}>WhatsApp Support</div>
+          <div style={{ color: "#F2F5F0", fontSize: 13.5, fontWeight: 700 }}>Coming Soon</div>
+        </div>
+        <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 14, padding: 18 }}>
+          <Clock size={18} color={lime} style={{ marginBottom: 8 }} />
+          <div style={{ fontSize: 12, color: muted, marginBottom: 4 }}>Business Hours</div>
+          <div style={{ color: "#F2F5F0", fontSize: 13.5, fontWeight: 700 }}>Mon – Sat, 10 AM – 7 PM (IST)</div>
+        </div>
+      </div>
+
+      <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 24 }}>
+        <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 17, marginBottom: 16 }}>Send Us a Message</h2>
+        <form onSubmit={submit}>
+          <FieldInput label="Name" value={form.name} onChange={(v) => updateField("name", v)} muted={muted} cardBorder={cardBorder} />
+          <FieldInput label="Email" value={form.email} onChange={(v) => updateField("email", v)} muted={muted} cardBorder={cardBorder} />
+          <FieldInput label="Subject" value={form.subject} onChange={(v) => updateField("subject", v)} muted={muted} cardBorder={cardBorder} optional />
+          <div style={{ marginBottom: 14 }}>
+            <label style={{ fontSize: 12, color: muted, display: "block", marginBottom: 6 }}>Message</label>
+            <textarea
+              rows={5}
+              value={form.message}
+              onChange={(e) => updateField("message", e.target.value)}
+              style={{ width: "100%", background: "#0F1513", border: `1px solid ${cardBorder}`, borderRadius: 10, padding: "11px 12px", color: "#F2F5F0", fontSize: 14, outline: "none", resize: "vertical", fontFamily: "inherit" }}
+            />
+          </div>
+          <button type="submit" className="ck-btn" style={{ width: "100%", background: lime, color: "#0F1513", border: "none", padding: "14px", borderRadius: 10, fontWeight: 800, cursor: "pointer" }}>
+            Send Message
+          </button>
+        </form>
+      </div>
+
+      <p style={{ color: muted, fontSize: 12.5, lineHeight: 1.7, marginTop: 20, textAlign: "center" }}>
+        Our support team typically responds within 24–48 business hours. For urgent payment issues, please include
+        your registered phone number in your message.
+      </p>
+    </div>
+  );
+}
+
+/* ---- SHARED LEGAL PAGE LAYOUT ---- */
+function LegalPage({ title, updated, muted, children }) {
+  return (
+    <div style={{ maxWidth: 760, margin: "0 auto", padding: "48px 20px 64px" }}>
+      <h1 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 26, marginBottom: 6 }}>{title}</h1>
+      <div style={{ color: muted, fontSize: 12, marginBottom: 30 }}>Last updated: {updated}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>{children}</div>
+    </div>
+  );
+}
+
+function LegalSection({ heading, cardBorder, children }) {
+  return (
+    <section style={{ borderTop: `1px solid ${cardBorder}`, paddingTop: 18 }}>
+      <h2 style={{ fontFamily: "'Archivo Black', sans-serif", fontSize: 15.5, marginBottom: 10 }}>{heading}</h2>
+      <div style={{ fontSize: 13.5, lineHeight: 1.75, color: "#C7D0CB" }}>{children}</div>
+    </section>
+  );
+}
+
+/* ---- PRIVACY POLICY ---- */
+function PrivacyPage({ lime, muted, cardBorder }) {
+  return (
+    <LegalPage title="Privacy Policy" updated="July 2026" muted={muted}>
+      <Seo
+        title="Privacy Policy | CraftSkill"
+        description="Read CraftSkill's Privacy Policy to understand what information we collect, how we use it, how we keep it secure, and your rights as a user."
+      />
+      <p style={{ fontSize: 13.5, lineHeight: 1.75, color: muted }}>
+        This Privacy Policy explains how CraftSkill ("we", "us", "our") collects, uses, and protects the
+        information of learners who use our website and courses (craftskill.in). By using CraftSkill, you agree to
+        the collection and use of information as described here.
+      </p>
+
+      <LegalSection heading="1. Information We Collect" cardBorder={cardBorder}>
+        <ul style={{ paddingLeft: 20, lineHeight: 2 }}>
+          <li><strong>Personal Information:</strong> your name, email address and phone number when you register or purchase a course.</li>
+          <li><strong>Email:</strong> used for login, order confirmations, and course-related communication.</li>
+          <li><strong>Phone Number:</strong> used to identify your account and for WhatsApp support.</li>
+          <li><strong>Payment Information:</strong> processed securely by our third-party payment gateway. CraftSkill does not store your card, UPI, or banking credentials on its own servers.</li>
+          <li><strong>Cookies:</strong> small files used to keep you logged in and remember your preferences.</li>
+          <li><strong>Analytics:</strong> anonymised usage data (pages visited, device/browser type) to help us improve the platform.</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection heading="2. How We Use Information" cardBorder={cardBorder}>
+        <ul style={{ paddingLeft: 20, lineHeight: 2 }}>
+          <li>To create and manage your CraftSkill account and course access.</li>
+          <li>To process payments and send purchase confirmations.</li>
+          <li>To calculate and pay referral program earnings.</li>
+          <li>To respond to support requests and improve our services.</li>
+          <li>To send important updates about your courses, account, or policies.</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection heading="3. Data Security" cardBorder={cardBorder}>
+        We use industry-standard measures — including encrypted connections and access-controlled databases — to
+        protect your information from unauthorised access, alteration, or disclosure. No online platform can
+        guarantee 100% security, but we work to keep your data as safe as possible.
+      </LegalSection>
+
+      <LegalSection heading="4. User Rights" cardBorder={cardBorder}>
+        <ul style={{ paddingLeft: 20, lineHeight: 2 }}>
+          <li>You may request a copy of the personal information we hold about you.</li>
+          <li>You may request correction of inaccurate information.</li>
+          <li>You may request deletion of your account, subject to any legal or financial record-keeping requirements.</li>
+        </ul>
+        To exercise any of these rights, contact us at <span style={{ color: lime, fontWeight: 700 }}>support@craftskill.in</span>.
+      </LegalSection>
+
+      <LegalSection heading="5. Third-Party Services" cardBorder={cardBorder}>
+        We use trusted third-party services for payment processing, hosting, and analytics. These providers only
+        receive the information necessary to perform their function and are required to handle it securely. We do
+        not sell your personal information to third parties.
+      </LegalSection>
+
+      <LegalSection heading="6. Contact Information" cardBorder={cardBorder}>
+        If you have questions about this Privacy Policy or how your data is handled, contact us at{" "}
+        <span style={{ color: lime, fontWeight: 700 }}>support@craftskill.in</span> or visit{" "}
+        <span style={{ color: lime, fontWeight: 700 }}>craftskill.in</span>.
+      </LegalSection>
+    </LegalPage>
+  );
+}
+
+/* ---- TERMS & CONDITIONS ---- */
+function TermsPage({ lime, muted, cardBorder }) {
+  return (
+    <LegalPage title="Terms & Conditions" updated="July 2026" muted={muted}>
+      <Seo
+        title="Terms & Conditions | CraftSkill"
+        description="Read the Terms & Conditions for using CraftSkill, including account usage, course access, referral program rules, payments, and community guidelines."
+      />
+      <p style={{ fontSize: 13.5, lineHeight: 1.75, color: muted }}>
+        These Terms & Conditions govern your use of CraftSkill (craftskill.in) and all courses, tools and features
+        provided on the platform. By registering or purchasing a course, you agree to these terms in full.
+      </p>
+
+      <LegalSection heading="1. User Responsibilities" cardBorder={cardBorder}>
+        You are responsible for providing accurate registration details and for all activity that occurs under
+        your account. You agree to use CraftSkill only for lawful, personal learning and freelancing purposes.
+      </LegalSection>
+
+      <LegalSection heading="2. Account Usage" cardBorder={cardBorder}>
+        Each account is for individual use only. Sharing login credentials, reselling access, or allowing multiple
+        unrelated users on a single account is not permitted and may lead to suspension.
+      </LegalSection>
+
+      <LegalSection heading="3. Course Access Rules" cardBorder={cardBorder}>
+        Course access is granted upon successful payment and is linked to your registered account. Access is for
+        personal learning use and may not be redistributed, resold, or shared publicly.
+      </LegalSection>
+
+      <LegalSection heading="4. Referral Program Rules" cardBorder={cardBorder}>
+        Referral bonuses are credited only for genuine, successful course purchases made using your unique referral
+        code. Fraudulent referrals, self-referrals, or fake sign-ups will be void, and any credited amount may be
+        reversed. Reseller pricing and bonus rates may be updated at CraftSkill's discretion.
+      </LegalSection>
+
+      <LegalSection heading="5. Payments" cardBorder={cardBorder}>
+        All payments are processed through our secure third-party payment gateway. Prices shown at checkout,
+        including any referral discount applied, are final at the time of purchase.
+      </LegalSection>
+
+      <LegalSection heading="6. Intellectual Property" cardBorder={cardBorder}>
+        All course content, videos, graphics, and materials provided on CraftSkill are the intellectual property of
+        CraftSkill or its licensors and are protected under applicable copyright law.
+      </LegalSection>
+
+      <LegalSection heading="7. Copyright" cardBorder={cardBorder}>
+        You may not copy, reproduce, distribute, or publicly share any CraftSkill course material without prior
+        written permission. Unauthorised use may result in legal action.
+      </LegalSection>
+
+      <LegalSection heading="8. Community Guidelines" cardBorder={cardBorder}>
+        Be respectful in all interactions with CraftSkill staff and fellow learners. Harassment, spam, or abusive
+        behaviour is not tolerated.
+      </LegalSection>
+
+      <LegalSection heading="9. Prohibited Activities" cardBorder={cardBorder}>
+        <ul style={{ paddingLeft: 20, lineHeight: 2 }}>
+          <li>Sharing or reselling course content or account access</li>
+          <li>Attempting to bypass payment or referral systems</li>
+          <li>Uploading harmful, offensive, or infringing content to your portfolio</li>
+          <li>Any activity that disrupts or compromises the platform's security</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection heading="10. Account Suspension" cardBorder={cardBorder}>
+        CraftSkill reserves the right to suspend or terminate accounts that violate these Terms, without refund,
+        where the violation involves fraud, abuse, or unauthorised redistribution of content.
+      </LegalSection>
+
+      <LegalSection heading="11. Changes to Terms" cardBorder={cardBorder}>
+        We may update these Terms from time to time. Continued use of CraftSkill after changes are posted
+        constitutes acceptance of the revised Terms. For questions, contact{" "}
+        <span style={{ color: lime, fontWeight: 700 }}>support@craftskill.in</span>.
+      </LegalSection>
+    </LegalPage>
+  );
+}
+
+/* ---- REFUND POLICY ---- */
+function RefundPage({ lime, muted, cardBorder }) {
+  return (
+    <LegalPage title="Refund Policy" updated="July 2026" muted={muted}>
+      <Seo
+        title="Refund Policy | CraftSkill"
+        description="Learn about CraftSkill's refund policy for digital courses, including eligibility, the review process, and processing timelines."
+      />
+      <p style={{ fontSize: 13.5, lineHeight: 1.75, color: muted }}>
+        This Refund Policy applies to all digital courses purchased on CraftSkill (craftskill.in).
+      </p>
+
+      <LegalSection heading="1. General Policy" cardBorder={cardBorder}>
+        Digital courses are generally <strong>non-refundable</strong> once payment is successfully completed and
+        course access has been granted, as the content is instantly accessible and consumable.
+      </LegalSection>
+
+      <LegalSection heading="2. Exceptions" cardBorder={cardBorder}>
+        Refunds may be considered only in the following cases:
+        <ul style={{ paddingLeft: 20, lineHeight: 2, marginTop: 8 }}>
+          <li>A verified technical issue prevented you from accessing your purchased course</li>
+          <li>A duplicate or incorrect payment was charged</li>
+          <li>Refund is required under applicable consumer protection law</li>
+        </ul>
+      </LegalSection>
+
+      <LegalSection heading="3. How to Request a Refund" cardBorder={cardBorder}>
+        Contact our support team at <span style={{ color: lime, fontWeight: 700 }}>support@craftskill.in</span> within
+        7 days of your purchase with your registered phone number, payment reference, and a description of the
+        issue.
+      </LegalSection>
+
+      <LegalSection heading="4. Review Process" cardBorder={cardBorder}>
+        Every refund request is reviewed individually by our support team. We may request additional information
+        or payment proof to verify the issue before approving a refund.
+      </LegalSection>
+
+      <LegalSection heading="5. Processing Timeline" cardBorder={cardBorder}>
+        Approved refunds are processed within 7–10 business days to the original payment method, subject to
+        processing times of the payment gateway or bank.
+      </LegalSection>
+    </LegalPage>
+  );
+}
+
+/* ---- FOOTER ---- */
+function Footer({ lime, amber, muted, cardBorder, setView }) {
+  const links = [
+    { label: "Home", view: "landing" },
+    { label: "About Us", view: "about" },
+    { label: "Contact Us", view: "contact" },
+    { label: "Privacy Policy", view: "privacy" },
+    { label: "Terms & Conditions", view: "terms" },
+    { label: "Refund Policy", view: "refund" },
+  ];
+  return (
+    <footer style={{ borderTop: `1px solid ${cardBorder}`, marginTop: 40, padding: "32px 20px 26px" }}>
+      <nav
+        aria-label="Footer navigation"
+        style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: "8px 20px", marginBottom: 18 }}
+      >
+        {links.map((l) => (
+          <button
+            key={l.view}
+            onClick={() => { setView(l.view); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+            style={{ background: "transparent", border: "none", color: muted, fontSize: 12.5, fontWeight: 600, cursor: "pointer", padding: "4px 0" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = lime)}
+            onMouseLeave={(e) => (e.currentTarget.style.color = muted)}
+          >
+            {l.label}
+          </button>
+        ))}
+      </nav>
+      <div style={{ textAlign: "center", fontSize: 12.5, color: muted, marginBottom: 6 }}>
+        <a href="mailto:support@craftskill.in" style={{ color: amber, textDecoration: "none", fontWeight: 600 }}>
+          support@craftskill.in
+        </a>
+      </div>
+      <div style={{ textAlign: "center", fontSize: 11.5, color: muted }}>
+        © 2026 CraftSkill. All Rights Reserved.
+      </div>
+    </footer>
   );
 }
