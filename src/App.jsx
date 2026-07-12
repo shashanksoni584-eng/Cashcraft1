@@ -97,6 +97,7 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [adminWallet, setAdminWallet] = useState(null);
   const [allUsers, setAllUsers] = useState([]);
+  const [referralDownline, setReferralDownline] = useState([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("landing");
   const [dashSubView, setDashSubView] = useState("dashboard"); 
@@ -121,6 +122,16 @@ export default function App() {
       setPricingRows(padded);
     }
   }, [currentUser?.phone]);
+
+  useEffect(() => {
+    (async () => {
+      if (dashSubView === "referral" && currentUser && currentUser.isReseller) {
+        const dbUsers = await getAllUsers();
+        const usersList = Array.isArray(dbUsers) ? dbUsers : Object.values(dbUsers || {});
+        setReferralDownline(usersList.filter((u) => u.referredBy === currentUser.referralCode));
+      }
+    })();
+  }, [dashSubView, currentUser?.phone, currentUser?.isReseller]);
 
   useEffect(() => {
     (async () => {
@@ -786,8 +797,33 @@ export default function App() {
                   </button>
                 </div>
                 <div style={{ fontSize: 11.5, color: muted, wordBreak: "break-all" }}>https://craftskill-learning.com/buy?ref={currentUser.referralCode}</div>
-                <p style={{ fontSize: 12, color: muted, marginTop: 14 }}>Har ek success purchase conversion par aapke wallet mein instant <span style={{ color: lime, fontWeight: 700 }}>₹{REFERRAL_BONUS}</span> add kiya jayega.</p>
+                <p style={{ fontSize: 12, color: muted, marginTop: 14 }}>
+                  Har ek success purchase conversion par aapke wallet mein instant{" "}
+                  <span style={{ color: lime, fontWeight: 700 }}>₹{currentUser.isReseller ? RESELLER_REFERRAL_BONUS : REFERRAL_BONUS}</span> add kiya jayega.
+                  {currentUser.isReseller && <> Aapke link se join karne walon ko <span style={{ color: amber, fontWeight: 700 }}>₹{RESELLER_DISCOUNT} off</span> milega.</>}
+                </p>
               </div>
+
+              {currentUser.isReseller && (
+                <div style={{ background: card, border: `1px solid ${cardBorder}`, borderRadius: 16, padding: 20, marginTop: 20 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                    <Users size={16} color={amber} />
+                    <span style={{ fontWeight: 700, fontSize: 14 }}>🏪 Retailer Referrals ({referralDownline.length})</span>
+                  </div>
+                  {referralDownline.length === 0 && (
+                    <div style={{ color: muted, fontSize: 12.5 }}>Abhi tak aapke link se koi join nahi hua hai.</div>
+                  )}
+                  {referralDownline.map((u) => (
+                    <div key={u.phone} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${cardBorder}` }}>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{u.name}</div>
+                        <div style={{ fontSize: 11, color: muted }}>{u.purchaseDate || "—"}</div>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "4px 10px", borderRadius: 999, background: "#123A1E", color: lime }}>Joined ✓</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
