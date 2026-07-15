@@ -9,7 +9,7 @@ import {
 } from "./dataStore";
 
 const COURSE_PRICE = 199; // Sirf combo pack ka unified price
-const REFERRAL_BONUS = 99;
+const REFERRAL_BONUS = 49;
 const RESELLER_REFERRAL_BONUS = 85; // Retailer/Reseller ko har referral par milega
 const RESELLER_DISCOUNT = 20; // Retailer ke link se join karne wale ko itna off milega
 const ADMIN_PASSCODE = "@sk804936"; 
